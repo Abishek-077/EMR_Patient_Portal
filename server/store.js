@@ -1,0 +1,180 @@
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
+const dataDir = path.join(rootDir, 'data');
+const dbPath = path.join(dataDir, 'db.json');
+const tmpPath = path.join(dataDir, 'db.tmp.json');
+
+const seedData = {
+  patient: {
+    name: 'Aarav Sharma',
+    age: 34,
+    identifier: 'OpenMRS ID: 100GEJ',
+    location: 'Kathmandu Clinic',
+    primaryCondition: 'Type 2 diabetes care plan',
+    careTeam: 'Dr. Mina K.C. and Nurse J. Thapa',
+    insurance: 'National Health Plan',
+    preferredLanguage: 'Nepali / English',
+    emergencyContact: 'Sita Sharma',
+  },
+  preferences: {
+    shareRecords: true,
+  },
+  tasks: [
+    {
+      id: 'task-1',
+      label: 'Confirm telehealth visit consent',
+      due: 'Today, 4:00 PM',
+      owner: 'Patient',
+      priority: 'High',
+      completed: false,
+    },
+    {
+      id: 'task-2',
+      label: 'Upload fasting glucose readings',
+      due: 'Tomorrow',
+      owner: 'Care team',
+      priority: 'Medium',
+      completed: true,
+    },
+    {
+      id: 'task-3',
+      label: 'Review updated metformin instructions',
+      due: 'June 2',
+      owner: 'Pharmacy',
+      priority: 'Low',
+      completed: false,
+    },
+  ],
+  appointments: [
+    {
+      id: 'apt-1',
+      service: 'Diabetes follow-up',
+      clinician: 'Dr. Mina K.C.',
+      date: 'Mon, June 1, 10:30 AM',
+      type: 'Video visit',
+      status: 'Confirmed',
+    },
+    {
+      id: 'apt-2',
+      service: 'A1c lab draw',
+      clinician: 'Community Lab Desk',
+      date: 'Wed, June 3, 8:15 AM',
+      type: 'In person',
+      status: 'Pending',
+    },
+    {
+      id: 'apt-3',
+      service: 'Nutrition counseling',
+      clinician: 'Rita Gurung, RD',
+      date: 'Fri, June 12, 2:00 PM',
+      type: 'Phone call',
+      status: 'Confirmed',
+    },
+  ],
+  appointmentRequests: [],
+  medications: [
+    {
+      name: 'Metformin XR',
+      dose: '500 mg',
+      schedule: '2 tablets with evening meal',
+      refill: '12 days left',
+      status: 'Active',
+    },
+    {
+      name: 'Atorvastatin',
+      dose: '20 mg',
+      schedule: '1 tablet nightly',
+      refill: 'Refill ready',
+      status: 'Active',
+    },
+    {
+      name: 'Vitamin D3',
+      dose: '1000 IU',
+      schedule: '1 tablet daily',
+      refill: '45 days left',
+      status: 'Optional',
+    },
+  ],
+  labResults: [
+    { label: 'A1c', value: 7.4, unit: '%', range: 'Goal < 7.0', tone: 'warning' },
+    { label: 'LDL', value: 91, unit: 'mg/dL', range: 'Goal < 100', tone: 'good' },
+    { label: 'eGFR', value: 86, unit: 'mL/min', range: 'Normal', tone: 'good' },
+    { label: 'BP', value: 132, unit: '/84', range: 'Slightly high', tone: 'warning' },
+  ],
+  messages: [
+    {
+      id: 'msg-1',
+      from: 'Dr. Mina K.C.',
+      subject: 'A1c follow-up',
+      preview: 'Your latest A1c is slightly above goal. Let us review your readings together.',
+      time: '1h ago',
+    },
+    {
+      id: 'msg-2',
+      from: 'Pharmacy desk',
+      subject: 'Atorvastatin refill',
+      preview: 'Your refill is prepared for pickup or delivery confirmation.',
+      time: 'Yesterday',
+    },
+    {
+      id: 'msg-3',
+      from: 'Kathmandu Clinic',
+      subject: 'Visit instructions',
+      preview: 'Please keep a list of home glucose checks ready for your video visit.',
+      time: 'May 28',
+    },
+  ],
+  documents: [
+    {
+      id: 'doc-1',
+      name: 'Continuity of care document',
+      category: 'Summary',
+      updated: 'May 29, 2026',
+      status: 'Ready',
+    },
+    {
+      id: 'doc-2',
+      name: 'A1c laboratory report',
+      category: 'Labs',
+      updated: 'May 27, 2026',
+      status: 'New',
+    },
+    {
+      id: 'doc-3',
+      name: 'Medication list',
+      category: 'Pharmacy',
+      updated: 'May 26, 2026',
+      status: 'Ready',
+    },
+  ],
+};
+
+async function ensureStore() {
+  await mkdir(dataDir, { recursive: true });
+  if (!existsSync(dbPath)) {
+    await writeFile(dbPath, `${JSON.stringify(seedData, null, 2)}\n`, 'utf8');
+  }
+}
+
+export async function readDb() {
+  await ensureStore();
+  return JSON.parse(await readFile(dbPath, 'utf8'));
+}
+
+export async function writeDb(db) {
+  await ensureStore();
+  await writeFile(tmpPath, `${JSON.stringify(db, null, 2)}\n`, 'utf8');
+  await rename(tmpPath, dbPath);
+}
+
+export async function updateDb(mutator) {
+  const db = await readDb();
+  const result = await mutator(db);
+  await writeDb(db);
+  return result;
+}
