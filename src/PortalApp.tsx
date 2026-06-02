@@ -1,124 +1,387 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Accordion,
-  AccordionItem,
   Button,
-  Checkbox,
-  ClickableTile,
   ComposedModal,
-  Content,
-  DataTableSkeleton,
   DatePicker,
   DatePickerInput,
-  Grid,
-  Header,
-  HeaderContainer,
-  HeaderGlobalAction,
-  HeaderGlobalBar,
-  HeaderMenuButton,
-  HeaderMenuItem,
-  HeaderName,
-  HeaderNavigation,
   InlineLoading,
   InlineNotification,
-  Layer,
   ModalBody,
   ModalFooter,
   ModalHeader,
-  OverflowMenu,
-  OverflowMenuItem,
-  ProgressBar,
-  Search,
-  SideNav,
-  SideNavItems,
-  SideNavLink,
   Stack,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
-  Tag,
   TextArea,
   TextInput,
-  Tile,
-  Toggle,
 } from '@carbon/react';
 import {
   Add,
   Calendar,
-  CaretRight,
   Chat,
   Document,
   Download,
   Home,
   Hospital,
+  Logout,
   Medication,
   Notification,
-  Logout,
-  Phone,
   Renew,
-  Search as SearchIcon,
+  Search,
   Settings,
   TaskComplete,
   TestTool,
   UserAvatar,
-  Video,
 } from '@carbon/icons-react';
 import {
   createVisitRequest,
   getPortalData,
   sendMessage,
-  updateShareRecords,
-  updateTask,
 } from './api';
-import type { AppointmentRequest, PortalData, Task } from './types';
+import type { PortalData } from './types';
 
-const documentHeaders = [
-  { key: 'name', header: 'Document' },
-  { key: 'category', header: 'Category' },
-  { key: 'updated', header: 'Updated' },
-  { key: 'status', header: 'Status' },
-];
+type PortalRoute = 'dashboard' | 'records';
 
 const initialVisitForm = {
-  reason: 'Diabetes follow-up',
+  reason: 'Annual physical',
   preferredDate: '',
   notes: '',
 };
 
 const initialMessageForm = {
-  subject: 'Question for care team',
+  subject: 'Question for Dr. Wilson',
   body: '',
 };
 
-function PriorityTag({ priority }: { priority: Task['priority'] }) {
-  const type = priority === 'High' ? 'red' : priority === 'Medium' ? 'magenta' : 'gray';
-  return <Tag type={type}>{priority}</Tag>;
+const dashboardLabs = [
+  { name: 'Glucose, Fasting', value: '94 mg/dL', range: '65 - 99 mg/dL', status: 'NORMAL', tone: 'normal' },
+  { name: 'Cholesterol, Total', value: '210 mg/dL', range: '< 200 mg/dL', status: 'HIGH', tone: 'high' },
+  { name: 'Hemoglobin A1c', value: '5.4 %', range: '4.8 - 5.6 %', status: 'NORMAL', tone: 'normal' },
+  { name: 'Vitamin D, 25-OH', value: '28 ng/mL', range: '30 - 100 ng/mL', status: 'LOW', tone: 'low' },
+];
+
+const appointments = [
+  { day: '31', month: 'OCT', title: 'Annual Physical', doctor: 'Dr. James Wilson', detail: '09:30 AM - Health Center 1', tone: 'blue' },
+  { day: '14', month: 'NOV', title: 'Dental Cleaning', doctor: 'Dr. Emily Chen', detail: '02:15 PM - Suite 405', tone: 'gray' },
+];
+
+const activity = [
+  { icon: Document, tone: 'blue', title: 'Medical Record Updated:', text: 'Visit summary from Cardiology Consultation is now available.', time: 'Today, 10:45 AM' },
+  { icon: TaskComplete, tone: 'green', title: 'Prescription Refilled:', text: 'Lisinopril 10mg is ready for pickup at Main Pharmacy.', time: 'Yesterday, 4:20 PM' },
+  { icon: Chat, tone: 'purple', title: 'New Message:', text: 'Dr. Wilson replied to your query about recent labs.', time: 'Oct 25, 11:15 AM' },
+];
+
+const clinicalNotes = [
+  { type: 'Follow-up Visit', date: 'Oct 12, 2023', title: 'Post-operative Management', text: 'Patient reports significant reduction in abdominal pain. Surgical incision site is healing well with no signs of infection or erythema...' },
+  { type: 'Telehealth', date: 'Sep 28, 2023', title: 'Medication Review', text: 'Discussed adjustment to Metformin dosage. Patient experiencing mild GI distress. Suggested evening dosing with food. Monitoring...' },
+];
+
+const recordLabs = [
+  { name: 'Complete Blood Count', detail: 'Panel Analysis', value: 'Normal', status: 'Verified', tone: 'normal', date: 'Oct 14' },
+  { name: 'Serum Creatinine', detail: 'Chemistry', value: '1.4 mg/dL', status: 'High', tone: 'high', date: 'Oct 14' },
+  { name: 'Urinalysis', detail: 'Routine', value: 'Pending', status: 'In Lab', tone: 'neutral', date: 'Oct 23' },
+  { name: 'Lipid Profile', detail: 'Annual Review', value: 'Optimal', status: 'Verified', tone: 'normal', date: 'Sep 15' },
+];
+
+const immunizations = [
+  { title: 'Influenza (Seasonal)', last: 'Last: Oct 02, 2023', doses: '2 doses', status: 'Up to date', tone: 'green' },
+  { title: 'COVID-19 Booster', last: 'Last: Jan 15, 2023', doses: '3 doses', status: 'Due Jan 2024', tone: 'yellow' },
+  { title: 'Tetanus (Tdap)', last: 'Last: Aug 12, 2019', doses: '1 dose', status: 'Up to date', tone: 'green' },
+];
+
+const menuItems = [
+  { label: 'Dashboard', route: 'dashboard' as const, icon: Home },
+  { label: 'Health Records', route: 'records' as const, icon: Document },
+  { label: 'Appointments', icon: Calendar },
+  { label: 'Messages', icon: Chat },
+  { label: 'Prescriptions', icon: Medication },
+  { label: 'Billing', icon: Hospital },
+  { label: 'Resources', icon: Document },
+  { label: 'Family Access', icon: UserAvatar },
+];
+
+function getHashRoute(): PortalRoute {
+  return location.hash === '#records' ? 'records' : 'dashboard';
 }
 
-function AppointmentIcon({ type }: { type: string }) {
-  if (type === 'Video visit') return <Video size={20} />;
-  if (type === 'Phone call') return <Phone size={20} />;
-  return <Hospital size={20} />;
+function IconButton({ label, children }: { label: string; children: React.ReactNode }) {
+  return <button className="icon-button" type="button" aria-label={label} title={label}>{children}</button>;
 }
 
-function formatCreatedAt(request: AppointmentRequest) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(request.createdAt));
+function PortalHeader({
+  route,
+  onNavigate,
+}: {
+  route: PortalRoute;
+  onNavigate: (route: PortalRoute) => void;
+}) {
+  return (
+    <header className="o3-header">
+      <strong>OpenMRS O3</strong>
+      <nav aria-label="Primary navigation">
+        <button className={route === 'dashboard' ? 'active' : ''} type="button" onClick={() => onNavigate('dashboard')}>Dashboard</button>
+        <button className={route === 'records' ? 'active' : ''} type="button" onClick={() => onNavigate('records')}>Records</button>
+        <button type="button">Messages</button>
+      </nav>
+      <label className="o3-search">
+        <Search size={16} />
+        <input aria-label="Search portal" placeholder={route === 'records' ? 'Search records...' : 'Search portal...'} />
+      </label>
+      <div className="o3-header-actions">
+        <IconButton label="Notifications"><Notification size={20} /></IconButton>
+        <IconButton label="Help"><span className="header-symbol">?</span></IconButton>
+        <IconButton label="Settings"><Settings size={20} /></IconButton>
+        <img src="/assets/patient-profile.png" alt="Sarah profile" />
+      </div>
+    </header>
+  );
+}
+
+function PortalSidebar({
+  route,
+  onNavigate,
+  onLogout,
+}: {
+  route: PortalRoute;
+  onNavigate: (route: PortalRoute) => void;
+  onLogout: () => void;
+}) {
+  return (
+    <aside className="portal-sidebar">
+      <div className="sidebar-profile">
+        <div className="sidebar-avatar">
+          {route === 'records' ? <img src="/assets/patient-profile.png" alt="" /> : <UserAvatar size={25} />}
+        </div>
+        <div>
+          <strong>Patient Portal</strong>
+          <span>Health ID: 100-234-567</span>
+        </div>
+      </div>
+      <nav className="sidebar-menu" aria-label="Portal sections">
+        {menuItems.map(({ label, route: itemRoute, icon: Icon }) => (
+          <button
+            className={itemRoute && itemRoute === route ? 'active' : ''}
+            key={label}
+            type="button"
+            onClick={() => itemRoute && onNavigate(itemRoute)}
+          >
+            <Icon size={21} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <button type="button"><Settings size={20} /><span>Settings</span></button>
+        <button type="button" onClick={onLogout}><Logout size={20} /><span>Logout</span></button>
+      </div>
+    </aside>
+  );
+}
+
+function Dashboard({
+  onBook,
+  onMessage,
+  onNavigate,
+}: {
+  onBook: () => void;
+  onMessage: () => void;
+  onNavigate: (route: PortalRoute) => void;
+}) {
+  return (
+    <main className="portal-main dashboard-page">
+      <section className="page-title dashboard-title">
+        <div>
+          <h1>Welcome back, Sarah</h1>
+          <p>Your health overview for Friday, October 27, 2023</p>
+        </div>
+        <div className="page-actions">
+          <button className="secondary-action" type="button"><Download size={16} /> Print Record</button>
+          <button className="primary-action" type="button" onClick={onBook}><Add size={16} /> New Request</button>
+        </div>
+      </section>
+
+      <section className="quick-grid" aria-label="Quick actions">
+        <button className="quick-card quick-card--blue" type="button" onClick={onMessage}>
+          <Chat size={29} />
+          <strong>Message my Doctor</strong>
+          <span>Last message: Oct 20</span>
+        </button>
+        <button className="quick-card" type="button">
+          <Medication size={29} />
+          <strong>Refill Prescriptions</strong>
+          <span>2 refills available</span>
+        </button>
+        <button className="quick-card quick-card--gray" type="button" onClick={() => onNavigate('records')}>
+          <Document size={29} />
+          <strong>View Records</strong>
+          <span>Updated 2 days ago</span>
+        </button>
+      </section>
+
+      <div className="dashboard-content">
+        <section className="o3-panel labs-panel">
+          <div className="panel-heading">
+            <h2><TestTool size={22} /> Latest Lab Results</h2>
+            <button type="button" onClick={() => onNavigate('records')}>View all results</button>
+          </div>
+          <table className="lab-table">
+            <thead>
+              <tr><th>Test Name</th><th>Result</th><th>Reference Range</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {dashboardLabs.map((lab) => (
+                <tr key={lab.name}>
+                  <td>{lab.name}</td>
+                  <td className={lab.tone === 'high' ? 'result-high' : ''}><strong>{lab.value}</strong></td>
+                  <td><small>{lab.range}</small></td>
+                  <td><span className={`status-pill status-pill--${lab.tone}`}>{lab.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="o3-panel appointment-panel">
+          <div className="panel-heading">
+            <h2><Calendar size={22} /> Appointments</h2>
+          </div>
+          <div className="appointment-list">
+            {appointments.map((appointment) => (
+              <article className={`appointment-card appointment-card--${appointment.tone}`} key={appointment.title}>
+                <time><strong>{appointment.day}</strong><span>{appointment.month}</span></time>
+                <div>
+                  <h3>{appointment.title}</h3>
+                  <p>{appointment.doctor}</p>
+                  <a href="#dashboard">{appointment.detail}</a>
+                </div>
+              </article>
+            ))}
+          </div>
+          <button className="wide-secondary" type="button" onClick={onBook}>Schedule New Appointment</button>
+        </section>
+
+        <section className="o3-panel activity-panel">
+          <div className="panel-heading"><h2><Renew size={22} /> Recent Activity</h2></div>
+          <div className="activity-list">
+            {activity.map(({ icon: Icon, tone, title, text, time }) => (
+              <article className="activity-row" key={title}>
+                <span className={`activity-icon activity-icon--${tone}`}><Icon size={18} /></span>
+                <div>
+                  <p><strong>{title}</strong> {text}</p>
+                  <small>{time}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="vitals-grid" aria-label="Recent vital signs">
+          <article className="vital-card"><span>Blood Pressure</span><strong>118/76<small> mmHg</small></strong><i><b style={{ width: '60%' }} /></i><em>Optimal</em></article>
+          <article className="vital-card"><span>Heart Rate</span><strong>72<small> BPM</small></strong><i><b style={{ width: '45%' }} /></i><em>Normal</em></article>
+          <article className="vital-card"><span>Weight</span><strong>164<small> lbs</small></strong><p>-2 lbs since last visit</p></article>
+          <article className="vital-card"><span>BMI</span><strong>24.2</strong><em>Healthy range</em></article>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function TrendChart() {
+  return (
+    <div className="trend-chart" aria-label="Blood pressure trend">
+      <div className="chart-tabs"><button className="active" type="button">Blood Pressure</button><button type="button">Weight</button><button type="button">Glucose</button></div>
+      <svg viewBox="0 0 640 220" role="img" aria-label="Stable blood pressure trend chart">
+        <polyline points="35,145 145,132 255,141 365,114 475,122 585,96" fill="none" stroke="#0f62fe" strokeWidth="4" />
+        {[['35','145'], ['145','132'], ['255','141'], ['365','114'], ['475','122'], ['585','96']].map(([cx, cy]) => <circle cx={cx} cy={cy} fill="#0f62fe" key={`${cx}-${cy}`} r="6" />)}
+      </svg>
+      <div className="trend-tooltip">
+        <strong>Last Reading: 120/80<br />mmHg</strong>
+        <span>Stable Trend - Oct 14, 2023</span>
+      </div>
+    </div>
+  );
+}
+
+function RecordsPage() {
+  return (
+    <main className="portal-main records-page">
+      <section className="records-title">
+        <div>
+          <h1>Health Records</h1>
+          <p>Comprehensive clinical summary including longitudinal vital trends, laboratory results, and documented patient history.</p>
+        </div>
+        <div className="page-actions">
+          <button className="secondary-action" type="button"><Download size={16} /> Export PDF</button>
+          <button className="primary-action" type="button"><Add size={16} /> Add Note</button>
+        </div>
+      </section>
+
+      <div className="records-grid">
+        <section className="records-trends">
+          <h2><Renew size={22} /> Health Trends</h2>
+          <TrendChart />
+        </section>
+        <aside className="observations-panel">
+          <h2>Critical Observations</h2>
+          <article className="observation observation--red"><strong>High Blood Glucose</strong><span>Reported 2 hours post-prandial: 184 mg/dL</span></article>
+          <article className="observation observation--yellow"><strong>Upcoming Lab: HbA1c</strong><span>Due in 3 days. Patient notified.</span></article>
+          <div className="records-sync"><span>Last Update</span><strong>10:45 AM, Oct 24, 2023</strong><a href="#records">Syncing with Central Registry...</a></div>
+        </aside>
+
+        <section className="clinical-notes">
+          <div className="records-subheading"><h2>Clinical Notes</h2><a href="#records">View All History</a></div>
+          {clinicalNotes.map((note) => (
+            <article className="note-card" key={note.date}>
+              <div><span>{note.type}</span><time>{note.date}</time></div>
+              <h3>{note.title}</h3>
+              <p>{note.text}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="record-labs">
+          <div className="records-subheading"><h2>Laboratory Results</h2><span>Filter &nbsp; &#8942;</span></div>
+          <table>
+            <thead><tr><th>Test Name</th><th>Result</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              {recordLabs.map((lab) => (
+                <tr key={lab.name}>
+                  <td>{lab.name}<small>{lab.detail}</small></td>
+                  <td className={lab.tone === 'high' ? 'result-high' : ''}><strong>{lab.value}</strong></td>
+                  <td><span className={`status-pill status-pill--${lab.tone}`}>{lab.status}</span></td>
+                  <td>{lab.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="immunization-panel">
+          <h2>Immunization History</h2>
+          <div className="immunization-grid">
+            {immunizations.map((item) => (
+              <article className="immunization-card" key={item.title}>
+                <div><span><Medication size={22} /></span><small>{item.doses}</small></div>
+                <strong>{item.title}</strong>
+                <p>{item.last}</p>
+                <i><b className={`bar--${item.tone}`} style={{ width: item.tone === 'green' ? '100%' : '72%' }} /></i>
+                <em className={`text--${item.tone}`}>{item.status}</em>
+              </article>
+            ))}
+            <button className="log-immunization" type="button"><Add size={22} /> Log New Immunization</button>
+          </div>
+        </section>
+      </div>
+      <button className="floating-add" aria-label="Add record" title="Add record" type="button"><Add size={27} /></button>
+    </main>
+  );
 }
 
 function PortalApp({ onLogout }: { onLogout: () => void }) {
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [actionError, setActionError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [route, setRoute] = useState<PortalRoute>(getHashRoute);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
-  const [query, setQuery] = useState('');
   const [visitForm, setVisitForm] = useState(initialVisitForm);
   const [messageForm, setMessageForm] = useState(initialMessageForm);
   const [formError, setFormError] = useState('');
@@ -126,10 +389,7 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     getPortalData()
-      .then((data) => {
-        setPortal(data);
-        setLoadError('');
-      })
+      .then((data) => setPortal(data))
       .catch((error: Error) => {
         if (error.message === 'Authentication required') {
           onLogout();
@@ -140,117 +400,28 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
       .finally(() => setIsLoading(false));
   }, [onLogout]);
 
-  const completion = useMemo(() => {
-    if (!portal?.tasks.length) return 0;
-    return Math.round((portal.tasks.filter((task) => task.completed).length / portal.tasks.length) * 100);
-  }, [portal?.tasks]);
+  useEffect(() => {
+    const updateRoute = () => setRoute(getHashRoute());
+    window.addEventListener('hashchange', updateRoute);
+    return () => window.removeEventListener('hashchange', updateRoute);
+  }, []);
 
-  const filteredMessages = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const messages = portal?.messages ?? [];
-    if (!normalizedQuery) return messages;
-    return messages.filter((message) =>
-      [message.from, message.subject, message.preview].some((field) =>
-        field.toLowerCase().includes(normalizedQuery),
-      ),
-    );
-  }, [portal?.messages, query]);
-
-  if (isLoading) {
-    return (
-      <main className="app-loading">
-        <InlineLoading description="Loading patient portal" />
-      </main>
-    );
-  }
-
-  if (loadError || !portal) {
-    return (
-      <main className="app-loading">
-        <InlineNotification
-          kind="error"
-          title="Could not load portal"
-          subtitle={loadError || 'The API did not return portal data.'}
-        />
-      </main>
-    );
-  }
-
-  const {
-    patient,
-    preferences,
-    tasks,
-    appointments,
-    appointmentRequests,
-    medications,
-    labResults,
-    documents,
-  } = portal;
-
-  const activeMedicationCount = medications.filter((medication) => medication.status === 'Active').length;
-  const flaggedResultsCount = labResults.filter((result) => result.tone === 'warning').length;
-  const openTaskCount = tasks.filter((task) => !task.completed).length;
-  const nextAppointment = appointments[0];
-
-  const updatePortal = (updater: (current: PortalData) => PortalData) => {
-    setPortal((current) => (current ? updater(current) : current));
-  };
-
-  const handleTaskToggle = async (taskId: string, completed: boolean) => {
-    setActionError('');
-    updatePortal((current) => ({
-      ...current,
-      tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, completed } : task)),
-    }));
-
-    try {
-      await updateTask(taskId, completed);
-    } catch (error) {
-      updatePortal((current) => ({
-        ...current,
-        tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, completed: !completed } : task)),
-      }));
-      setActionError(error instanceof Error ? error.message : 'Could not update task');
-    }
-  };
-
-  const handleShareToggle = async (shareRecords: boolean) => {
-    setActionError('');
-    updatePortal((current) => ({
-      ...current,
-      preferences: { ...current.preferences, shareRecords },
-    }));
-
-    try {
-      await updateShareRecords(shareRecords);
-    } catch (error) {
-      updatePortal((current) => ({
-        ...current,
-        preferences: { ...current.preferences, shareRecords: !shareRecords },
-      }));
-      setActionError(error instanceof Error ? error.message : 'Could not update sharing preference');
-    }
-  };
+  const navigate = useCallback((nextRoute: PortalRoute) => {
+    location.hash = nextRoute;
+    setRoute(nextRoute);
+  }, []);
 
   const handleVisitSubmit = async () => {
     if (!visitForm.reason.trim() || !visitForm.preferredDate.trim()) {
       setFormError('Reason and preferred date are required.');
       return;
     }
-
     setIsSubmitting(true);
     setFormError('');
-    setActionError('');
-
     try {
-      const request = await createVisitRequest(visitForm);
-      updatePortal((current) => ({
-        ...current,
-        appointmentRequests: [request, ...current.appointmentRequests],
-      }));
+      await createVisitRequest(visitForm);
       setBookingOpen(false);
       setVisitForm(initialVisitForm);
-      setNotice('Appointment request sent to the care team.');
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not send appointment request');
     } finally {
@@ -263,20 +434,12 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
       setFormError('Subject and message are required.');
       return;
     }
-
     setIsSubmitting(true);
     setFormError('');
-    setActionError('');
-
     try {
-      const message = await sendMessage(messageForm.subject, messageForm.body);
-      updatePortal((current) => ({
-        ...current,
-        messages: [message, ...current.messages],
-      }));
+      await sendMessage(messageForm.subject, messageForm.body);
       setMessageOpen(false);
       setMessageForm(initialMessageForm);
-      setNotice('Message sent to the care team.');
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not send message');
     } finally {
@@ -284,530 +447,52 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  if (isLoading) return <main className="app-loading"><InlineLoading description="Loading patient portal" /></main>;
+  if (loadError || !portal) return <main className="app-loading"><InlineNotification kind="error" title="Could not load portal" subtitle={loadError || 'The API did not return portal data.'} /></main>;
+
   return (
-    <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
-        <>
-          <Header aria-label="OpenMRS O3 Patient Portal">
-            <HeaderMenuButton
-              aria-label={isSideNavExpanded ? 'Close menu' : 'Open menu'}
-              isCollapsible
-              onClick={onClickSideNavExpand}
-              isActive={isSideNavExpanded}
-            />
-            <HeaderName href="#" prefix="OpenMRS O3">
-              Patient Portal
-            </HeaderName>
-            <HeaderNavigation aria-label="Patient portal">
-              <HeaderMenuItem href="#dashboard">Home</HeaderMenuItem>
-              <HeaderMenuItem href="#visits">Visits</HeaderMenuItem>
-              <HeaderMenuItem href="#results">Results</HeaderMenuItem>
-              <HeaderMenuItem href="#messages">Messages</HeaderMenuItem>
-            </HeaderNavigation>
-            <HeaderGlobalBar>
-              <HeaderGlobalAction aria-label="Search">
-                <SearchIcon size={20} />
-              </HeaderGlobalAction>
-              <HeaderGlobalAction aria-label="Notifications">
-                <Notification size={20} />
-              </HeaderGlobalAction>
-              <HeaderGlobalAction aria-label="Account">
-                <UserAvatar size={20} />
-              </HeaderGlobalAction>
-              <HeaderGlobalAction aria-label="Sign out" onClick={onLogout}>
-                <Logout size={20} />
-              </HeaderGlobalAction>
-            </HeaderGlobalBar>
-            <SideNav
-              aria-label="Portal navigation"
-              expanded={isSideNavExpanded}
-              isPersistent={false}
-            >
-              <SideNavItems>
-                <SideNavLink href="#dashboard" renderIcon={Home}>
-                  Dashboard
-                </SideNavLink>
-                <SideNavLink href="#visits" renderIcon={Calendar}>
-                  Appointments
-                </SideNavLink>
-                <SideNavLink href="#medications" renderIcon={Medication}>
-                  Medications
-                </SideNavLink>
-                <SideNavLink href="#results" renderIcon={TestTool}>
-                  Lab results
-                </SideNavLink>
-                <SideNavLink href="#records" renderIcon={Document}>
-                  Records
-                </SideNavLink>
-                <SideNavLink href="#messages" renderIcon={Chat}>
-                  Messages
-                </SideNavLink>
-                <SideNavLink href="#settings" renderIcon={Settings}>
-                  Settings
-                </SideNavLink>
-              </SideNavItems>
-            </SideNav>
-          </Header>
+    <div className="portal-app">
+      <PortalHeader route={route} onNavigate={navigate} />
+      <div className="portal-frame">
+        <PortalSidebar route={route} onNavigate={navigate} onLogout={onLogout} />
+        {route === 'records'
+          ? <RecordsPage />
+          : <Dashboard onBook={() => setBookingOpen(true)} onMessage={() => setMessageOpen(true)} onNavigate={navigate} />}
+      </div>
 
-          <Content id="main-content" className="portal-shell">
-            <section className="patient-banner" id="dashboard">
-              <div className="patient-banner__identity">
-                <Tag type="cyan">OpenMRS ID verified</Tag>
-                <h1>{patient.name}</h1>
-                <p>
-                  {patient.age} years old - {patient.identifier} - {patient.location}
-                </p>
-              </div>
-              <div className="patient-banner__context" aria-label="Care plan summary">
-                <div>
-                  <span>Active program</span>
-                  <strong>{patient.primaryCondition}</strong>
-                </div>
-                <div>
-                  <span>Care team</span>
-                  <strong>{patient.careTeam}</strong>
-                </div>
-              </div>
-              <div className="patient-banner__actions">
-                <Button renderIcon={Add} onClick={() => setBookingOpen(true)}>
-                  Book visit
-                </Button>
-                <Button kind="tertiary" renderIcon={Chat} onClick={() => setMessageOpen(true)}>
-                  Message team
-                </Button>
-              </div>
-            </section>
+      <ComposedModal open={bookingOpen} onClose={() => setBookingOpen(false)} size="sm">
+        <ModalHeader title="Schedule new appointment" />
+        <ModalBody>
+          <Stack gap={5}>
+            <TextInput id="visit-reason" labelText="Reason for visit" value={visitForm.reason} onChange={(event) => setVisitForm((current) => ({ ...current, reason: event.target.value }))} />
+            <DatePicker datePickerType="single" onChange={(_, dateString) => setVisitForm((current) => ({ ...current, preferredDate: dateString }))}>
+              <DatePickerInput id="visit-date" placeholder="mm/dd/yyyy" labelText="Preferred date" size="md" />
+            </DatePicker>
+            <TextArea id="visit-notes" labelText="Notes for care team" value={visitForm.notes} onChange={(event) => setVisitForm((current) => ({ ...current, notes: event.target.value }))} />
+            {formError && <InlineNotification kind="error" lowContrast title="Cannot send request" subtitle={formError} />}
+          </Stack>
+        </ModalBody>
+        <ModalFooter>
+          <Button kind="secondary" onClick={() => setBookingOpen(false)}>Cancel</Button>
+          <Button onClick={handleVisitSubmit} disabled={isSubmitting}>{isSubmitting ? 'Sending...' : 'Send request'}</Button>
+        </ModalFooter>
+      </ComposedModal>
 
-            {notice && (
-              <InlineNotification
-                className="status-alert"
-                kind="success"
-                lowContrast
-                title="Saved"
-                subtitle={notice}
-                onClose={() => setNotice('')}
-              />
-            )}
-
-            {actionError && (
-              <InlineNotification
-                className="status-alert"
-                kind="error"
-                lowContrast
-                title="Action failed"
-                subtitle={actionError}
-                onClose={() => setActionError('')}
-              />
-            )}
-
-            <InlineNotification
-              className="care-alert"
-              kind="warning"
-              lowContrast
-              title="Clinical follow-up recommended"
-              subtitle="A1c increased from 6.9% to 7.4%. Review readings with your care team before the next visit."
-            />
-
-            <Grid fullWidth className="dashboard-grid">
-              <Layer as="section" className="summary-panel">
-                <Stack gap={5}>
-                  <div className="section-heading">
-                    <div>
-                      <p>Today</p>
-                      <h2>Care overview</h2>
-                    </div>
-                    <Button kind="ghost" size="sm" renderIcon={Download}>
-                      Export
-                    </Button>
-                  </div>
-                  <div className="metric-grid">
-                    <ClickableTile href="#visits" className="metric-tile metric-tile--blue">
-                      <Calendar size={24} />
-                      <span>Next appointment</span>
-                      <strong>{nextAppointment?.date.split(',')[0] ?? 'None'}</strong>
-                      <small>{nextAppointment ? `${nextAppointment.type} with ${nextAppointment.clinician}` : 'No visit scheduled'}</small>
-                    </ClickableTile>
-                    <ClickableTile href="#medications" className="metric-tile metric-tile--green">
-                      <Medication size={24} />
-                      <span>Medication status</span>
-                      <strong>{activeMedicationCount} active</strong>
-                      <small>{medications.filter((medication) => medication.refill.includes('ready')).length} refill ready</small>
-                    </ClickableTile>
-                    <ClickableTile href="#tasks" className="metric-tile metric-tile--purple">
-                      <TaskComplete size={24} />
-                      <span>Care tasks</span>
-                      <strong>{completion}% done</strong>
-                      <small>{openTaskCount} open tasks</small>
-                    </ClickableTile>
-                    <ClickableTile href="#results" className="metric-tile metric-tile--orange">
-                      <TestTool size={24} />
-                      <span>New results</span>
-                      <strong>{flaggedResultsCount} flagged</strong>
-                      <small>A1c requires review</small>
-                    </ClickableTile>
-                  </div>
-                </Stack>
-              </Layer>
-
-              <Layer as="aside" className="profile-panel">
-                <div className="profile-card">
-                  <div className="avatar-block">
-                    <UserAvatar size={40} />
-                    <div>
-                      <strong>{patient.name}</strong>
-                      <span>Patient access enabled</span>
-                    </div>
-                  </div>
-                  <div className="profile-list">
-                    <p>
-                      <span>Insurance</span>
-                      <strong>{patient.insurance}</strong>
-                    </p>
-                    <p>
-                      <span>Preferred language</span>
-                      <strong>{patient.preferredLanguage}</strong>
-                    </p>
-                    <p>
-                      <span>Emergency contact</span>
-                      <strong>{patient.emergencyContact}</strong>
-                    </p>
-                  </div>
-                  <Toggle
-                    id="share-records"
-                    labelText="Share visit summary with care team"
-                    toggled={preferences.shareRecords}
-                    onToggle={(value) => handleShareToggle(value)}
-                  />
-                </div>
-              </Layer>
-
-              <Layer as="section" className="work-panel" id="tasks">
-                <div className="section-heading">
-                  <div>
-                    <p>Care plan</p>
-                    <h2>Tasks and timeline</h2>
-                  </div>
-                  <ProgressBar
-                    className="completion-progress"
-                    label={`${completion}% complete`}
-                    value={completion}
-                    max={100}
-                    size="small"
-                  />
-                </div>
-                <div className="task-list">
-                  {tasks.map((task) => (
-                    <Tile className="task-row" key={task.id}>
-                      <Checkbox
-                        id={task.id}
-                        labelText={task.label}
-                        checked={task.completed}
-                        onChange={(_, { checked }) => handleTaskToggle(task.id, checked)}
-                      />
-                      <div className="task-row__meta">
-                        <span>{task.due}</span>
-                        <span>{task.owner}</span>
-                        <PriorityTag priority={task.priority} />
-                      </div>
-                    </Tile>
-                  ))}
-                </div>
-              </Layer>
-
-              <Layer as="section" className="results-panel" id="results">
-                <div className="section-heading">
-                  <div>
-                    <p>Latest observations</p>
-                    <h2>Lab results</h2>
-                  </div>
-                  <Button kind="ghost" size="sm" renderIcon={CaretRight}>
-                    View trends
-                  </Button>
-                </div>
-                <div className="lab-grid">
-                  {labResults.map((result) => (
-                    <Tile className={`lab-card lab-card--${result.tone}`} key={result.label}>
-                      <span>{result.label}</span>
-                      <strong>
-                        {result.value}
-                        <small>{result.unit}</small>
-                      </strong>
-                      <p>{result.range}</p>
-                      <div className="sparkline" aria-hidden="true">
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                      </div>
-                    </Tile>
-                  ))}
-                </div>
-              </Layer>
-
-              <Layer as="section" className="appointments-panel" id="visits">
-                <Tabs>
-                  <TabList aria-label="Visit management tabs">
-                    <Tab>Upcoming</Tab>
-                    <Tab>Past visits</Tab>
-                    <Tab>Requests</Tab>
-                  </TabList>
-                  <TabPanels>
-                    <TabPanel>
-                      <Stack gap={4}>
-                        {appointments.map((appointment) => (
-                          <Tile className="appointment-row" key={appointment.id}>
-                            <div className="appointment-row__icon">
-                              <AppointmentIcon type={appointment.type} />
-                            </div>
-                            <div>
-                              <h3>{appointment.service}</h3>
-                              <p>
-                                {appointment.clinician} - {appointment.date}
-                              </p>
-                              <Tag type={appointment.status === 'Confirmed' ? 'green' : 'purple'}>
-                                {appointment.status}
-                              </Tag>
-                            </div>
-                            <OverflowMenu size="sm" flipped>
-                              <OverflowMenuItem itemText="Reschedule" />
-                              <OverflowMenuItem itemText="Add to calendar" />
-                              <OverflowMenuItem hasDivider itemText="Cancel visit" isDelete />
-                            </OverflowMenu>
-                          </Tile>
-                        ))}
-                      </Stack>
-                    </TabPanel>
-                    <TabPanel>
-                      <DataTableSkeleton columnCount={4} rowCount={3} showHeader={false} />
-                    </TabPanel>
-                    <TabPanel>
-                      {appointmentRequests.length ? (
-                        <Stack gap={4}>
-                          {appointmentRequests.map((request) => (
-                            <Tile className="appointment-row" key={request.id}>
-                              <div className="appointment-row__icon">
-                                <Calendar size={20} />
-                              </div>
-                              <div>
-                                <h3>{request.reason}</h3>
-                                <p>
-                                  Preferred {request.preferredDate} - requested {formatCreatedAt(request)}
-                                </p>
-                                <Tag type="cyan">{request.status}</Tag>
-                              </div>
-                            </Tile>
-                          ))}
-                        </Stack>
-                      ) : (
-                        <InlineLoading description="No open appointment requests" status="finished" />
-                      )}
-                    </TabPanel>
-                  </TabPanels>
-                </Tabs>
-              </Layer>
-
-              <Layer as="section" className="medications-panel" id="medications">
-                <div className="section-heading">
-                  <div>
-                    <p>Pharmacy</p>
-                    <h2>Medications</h2>
-                  </div>
-                  <Button size="sm" kind="tertiary" renderIcon={Renew}>
-                    Request refill
-                  </Button>
-                </div>
-                <Accordion align="start">
-                  {medications.map((medication) => (
-                    <AccordionItem
-                      key={medication.name}
-                      title={`${medication.name} - ${medication.dose}`}
-                    >
-                      <div className="medication-detail">
-                        <p>{medication.schedule}</p>
-                        <Tag type={medication.status === 'Active' ? 'green' : 'gray'}>
-                          {medication.status}
-                        </Tag>
-                        <span>{medication.refill}</span>
-                      </div>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </Layer>
-
-              <Layer as="section" className="messages-panel" id="messages">
-                <div className="section-heading section-heading--stacked">
-                  <div>
-                    <p>Inbox</p>
-                    <h2>Messages</h2>
-                  </div>
-                  <Search
-                    id="message-search"
-                    labelText="Search messages"
-                    placeholder="Search messages"
-                    size="md"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-                <div className="message-list">
-                  {filteredMessages.map((message) => (
-                    <ClickableTile href="#messages" className="message-row" key={message.id}>
-                      <div>
-                        <strong>{message.from}</strong>
-                        <span>{message.time}</span>
-                      </div>
-                      <h3>
-                        {message.subject}
-                        {message.outbound && <Tag type="blue">Sent</Tag>}
-                      </h3>
-                      <p>{message.preview}</p>
-                    </ClickableTile>
-                  ))}
-                </div>
-              </Layer>
-
-              <Layer as="section" className="records-panel" id="records">
-                <div className="section-heading">
-                  <div>
-                    <p>FHIR-ready exports</p>
-                    <h2>Records</h2>
-                  </div>
-                  <Button size="sm" kind="ghost" renderIcon={Download}>
-                    Download all
-                  </Button>
-                </div>
-                <table className="records-table">
-                  <thead>
-                    <tr>
-                      {documentHeaders.map((header) => (
-                        <th key={header.key}>{header.header}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {documents.map((row) => (
-                      <tr key={row.id}>
-                        <td>{row.name}</td>
-                        <td>{row.category}</td>
-                        <td>{row.updated}</td>
-                        <td>{row.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Layer>
-            </Grid>
-          </Content>
-
-          <ComposedModal
-            open={bookingOpen}
-            onClose={() => {
-              setBookingOpen(false);
-              setFormError('');
-            }}
-            size="sm"
-          >
-            <ModalHeader title="Book a visit" />
-            <ModalBody>
-              <Stack gap={5}>
-                <TextInput
-                  id="visit-reason"
-                  labelText="Reason for visit"
-                  value={visitForm.reason}
-                  onChange={(event) =>
-                    setVisitForm((current) => ({ ...current, reason: event.target.value }))
-                  }
-                />
-                <DatePicker
-                  datePickerType="single"
-                  onChange={(_, dateString) =>
-                    setVisitForm((current) => ({ ...current, preferredDate: dateString }))
-                  }
-                >
-                  <DatePickerInput
-                    id="visit-date"
-                    placeholder="mm/dd/yyyy"
-                    labelText="Preferred date"
-                    size="md"
-                  />
-                </DatePicker>
-                <TextArea
-                  id="visit-notes"
-                  labelText="Notes for care team"
-                  placeholder="Share symptoms, readings, or scheduling constraints"
-                  value={visitForm.notes}
-                  onChange={(event) =>
-                    setVisitForm((current) => ({ ...current, notes: event.target.value }))
-                  }
-                />
-                {formError ? (
-                  <InlineNotification kind="error" lowContrast title="Cannot send request" subtitle={formError} />
-                ) : (
-                  <InlineNotification
-                    kind="info"
-                    lowContrast
-                    title="Care team queue"
-                    subtitle="This request will be queued for care team review."
-                  />
-                )}
-              </Stack>
-            </ModalBody>
-            <ModalFooter>
-              <Button kind="secondary" onClick={() => setBookingOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleVisitSubmit} disabled={isSubmitting}>
-                {isSubmitting ? 'Sending...' : 'Send request'}
-              </Button>
-            </ModalFooter>
-          </ComposedModal>
-
-          <ComposedModal
-            open={messageOpen}
-            onClose={() => {
-              setMessageOpen(false);
-              setFormError('');
-            }}
-            size="sm"
-          >
-            <ModalHeader title="Message care team" />
-            <ModalBody>
-              <Stack gap={5}>
-                <TextInput
-                  id="message-subject"
-                  labelText="Subject"
-                  value={messageForm.subject}
-                  onChange={(event) =>
-                    setMessageForm((current) => ({ ...current, subject: event.target.value }))
-                  }
-                />
-                <TextArea
-                  id="message-body"
-                  labelText="Message"
-                  placeholder="Write a message for your care team"
-                  value={messageForm.body}
-                  onChange={(event) =>
-                    setMessageForm((current) => ({ ...current, body: event.target.value }))
-                  }
-                />
-                {formError && (
-                  <InlineNotification kind="error" lowContrast title="Cannot send message" subtitle={formError} />
-                )}
-              </Stack>
-            </ModalBody>
-            <ModalFooter>
-              <Button kind="secondary" onClick={() => setMessageOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleMessageSubmit} disabled={isSubmitting}>
-                {isSubmitting ? 'Sending...' : 'Send message'}
-              </Button>
-            </ModalFooter>
-          </ComposedModal>
-        </>
-      )}
-    />
+      <ComposedModal open={messageOpen} onClose={() => setMessageOpen(false)} size="sm">
+        <ModalHeader title="Message my doctor" />
+        <ModalBody>
+          <Stack gap={5}>
+            <TextInput id="message-subject" labelText="Subject" value={messageForm.subject} onChange={(event) => setMessageForm((current) => ({ ...current, subject: event.target.value }))} />
+            <TextArea id="message-body" labelText="Message" value={messageForm.body} onChange={(event) => setMessageForm((current) => ({ ...current, body: event.target.value }))} />
+            {formError && <InlineNotification kind="error" lowContrast title="Cannot send message" subtitle={formError} />}
+          </Stack>
+        </ModalBody>
+        <ModalFooter>
+          <Button kind="secondary" onClick={() => setMessageOpen(false)}>Cancel</Button>
+          <Button onClick={handleMessageSubmit} disabled={isSubmitting}>{isSubmitting ? 'Sending...' : 'Send message'}</Button>
+        </ModalFooter>
+      </ComposedModal>
+    </div>
   );
 }
 
