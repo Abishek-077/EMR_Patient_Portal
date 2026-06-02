@@ -1592,6 +1592,741 @@ p {
   font-weight: 600;
 }
 
+.workspace-notice {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-left: 4px solid var(--o3-green);
+  background: #defbe6;
+  color: #0e6027;
+  font-size: 0.86rem;
+}
+
+.prescriptions-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.6rem;
+}
+
+.prescriptions-title h1,
+.billing-title h1,
+.settings-title h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.prescriptions-title p,
+.billing-title p,
+.settings-title span {
+  margin: 0;
+  color: #525252;
+  font-size: 0.92rem;
+}
+
+.pharmacy-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--o3-border);
+}
+
+.pharmacy-summary > article,
+.pharmacy-summary > aside {
+  padding: 1.15rem;
+}
+
+.pharmacy-summary > article {
+  border-right: 1px solid var(--o3-border);
+}
+
+.pharmacy-summary > article > div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.pharmacy-summary span,
+.balance-panel span,
+.insurance-details span {
+  display: block;
+  color: #525252;
+  font-size: 0.83rem;
+}
+
+.pharmacy-summary > article > div span,
+.pharmacy-summary aside h2,
+.balance-panel > div:first-child span {
+  text-transform: uppercase;
+}
+
+.pharmacy-summary button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: transparent;
+  color: var(--o3-blue);
+}
+
+.pharmacy-summary a {
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--o3-blue);
+  text-decoration: none;
+}
+
+.pharmacy-summary article p {
+  margin: 0.4rem 0 0;
+  line-height: 1.4;
+}
+
+.pharmacy-summary article footer {
+  display: flex;
+  gap: 2.25rem;
+  margin-top: 1.2rem;
+}
+
+.pharmacy-summary article footer p {
+  margin: 0;
+}
+
+.pharmacy-summary article footer strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.pharmacy-summary aside {
+  background: #f4f4f4;
+}
+
+.pharmacy-summary aside h2 {
+  margin: 0 0 0.65rem;
+  color: #525252;
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+.pharmacy-summary aside p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--o3-border);
+}
+
+.text-red {
+  color: #da1e28 !important;
+}
+
+.prescriptions-table-panel,
+.invoice-panel {
+  border: 1px solid var(--o3-border);
+}
+
+.prescriptions-table-wrap,
+.invoice-table-wrap,
+.contacts-table-wrap {
+  overflow-x: auto;
+}
+
+.prescriptions-table-panel table,
+.invoice-panel table,
+.emergency-contacts table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+}
+
+.prescriptions-table-panel th,
+.prescriptions-table-panel td,
+.invoice-panel th,
+.invoice-panel td,
+.emergency-contacts th,
+.emergency-contacts td {
+  padding: 0.75rem 0.8rem;
+  border-bottom: 1px solid var(--o3-border);
+  text-align: left;
+}
+
+.prescriptions-table-panel th,
+.invoice-panel th,
+.emergency-contacts th {
+  background: #e8e8e8;
+  font-size: 0.78rem;
+}
+
+.prescriptions-table-panel td {
+  font-size: 0.88rem;
+}
+
+.prescriptions-table-panel td small {
+  display: block;
+  margin-top: 0.35rem;
+  color: #525252;
+}
+
+.muted-row {
+  color: #777;
+}
+
+.rx-status,
+.invoice-status {
+  display: inline-block;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.rx-status--refill-due,
+.invoice-status--overdue {
+  background: #ffd7d9;
+  color: #a2191f;
+}
+
+.rx-status--active {
+  background: #e8e8e8;
+  color: #525252;
+}
+
+.rx-status--pending-request {
+  background: #e8edff;
+  color: #35498f;
+}
+
+.rx-action {
+  min-width: 72px;
+  padding: 0.38rem 0.55rem;
+  border: 0;
+  background: var(--o3-blue);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.rx-action--muted {
+  background: #8d8d8d;
+}
+
+.prescriptions-table-panel > footer,
+.invoice-panel > footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: #f4f4f4;
+  color: #525252;
+  font-size: 0.87rem;
+}
+
+.safety-note {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1.15rem;
+  border: 1px solid var(--o3-border);
+  background: #f4f4f4;
+}
+
+.safety-note svg {
+  flex: 0 0 auto;
+  color: var(--o3-blue);
+}
+
+.safety-note p {
+  margin: 0;
+}
+
+.safety-note strong,
+.safety-note span {
+  display: block;
+}
+
+.safety-note span {
+  margin-top: 0.3rem;
+  color: #525252;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.billing-title {
+  margin-bottom: 2.1rem;
+}
+
+.billing-top-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  margin-bottom: 1rem;
+}
+
+.balance-panel,
+.payment-methods {
+  padding: 1.55rem;
+  border: 1px solid var(--o3-border);
+}
+
+.balance-panel > div:first-child {
+  display: flex;
+  justify-content: space-between;
+}
+
+.balance-panel > div:first-child b {
+  padding: 0.28rem 0.55rem;
+  background: #ffd7d9;
+  color: #a2191f;
+  font-size: 0.72rem;
+}
+
+.balance-panel > div:first-child .paid-label {
+  background: #defbe6;
+  color: #0e6027;
+}
+
+.balance-panel > strong {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--o3-blue);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.balance-breakdown {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--o3-border);
+}
+
+.balance-breakdown p {
+  margin: 0;
+}
+
+.balance-breakdown strong {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.balance-panel footer {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 3.4rem;
+}
+
+.payment-methods h2,
+.invoice-panel h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.payment-methods article {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.85rem;
+  padding: 0.85rem;
+  background: #f4f4f4;
+}
+
+.payment-methods article svg {
+  color: var(--o3-blue);
+}
+
+.payment-methods article p {
+  margin: 0;
+}
+
+.payment-methods article strong,
+.payment-methods article span {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.payment-methods article b {
+  margin-left: auto;
+  padding: 0.22rem 0.4rem;
+  background: #e0e0e0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.payment-methods > button {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  border: 1px dashed #c6c6c6;
+  background: #fff;
+  color: #374151;
+}
+
+.invoice-panel header {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+}
+
+.invoice-panel header div {
+  display: flex;
+  align-items: center;
+}
+
+.invoice-panel header button {
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border: 0;
+  background: transparent;
+}
+
+.invoice-panel header button.active {
+  background: #e8e8e8;
+}
+
+.invoice-panel header label {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+  padding: 0 0.65rem;
+  border-bottom: 1px solid #8d8d8d;
+  background: #f4f4f4;
+}
+
+.invoice-panel header input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.invoice-panel td {
+  font-size: 0.82rem;
+}
+
+.invoice-panel td button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: transparent;
+  color: var(--o3-blue);
+}
+
+.invoice-status--paid {
+  background: #defbe6;
+  color: #0e6027;
+}
+
+.invoice-status--pending {
+  background: #fff8d6;
+  color: #8e6a00;
+}
+
+.invoice-panel footer b {
+  padding: 0.55rem 0.7rem;
+  background: var(--o3-blue);
+  color: #fff;
+}
+
+.billing-resources {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1fr 2fr;
+  margin-top: 1rem;
+}
+
+.billing-resources article,
+.billing-resources aside {
+  min-height: 142px;
+  padding: 1rem;
+}
+
+.billing-resources article {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border: 1px solid var(--o3-border);
+}
+
+.billing-resources article svg {
+  box-sizing: content-box;
+  padding: 0.8rem;
+  background: #e8edff;
+  color: var(--o3-blue);
+}
+
+.billing-resources article p {
+  margin: 0;
+}
+
+.billing-resources article strong,
+.billing-resources article span {
+  display: block;
+  font-size: 0.78rem;
+}
+
+.billing-resources aside {
+  background: #161616;
+  color: #fff;
+}
+
+.billing-resources aside h3,
+.billing-resources aside p {
+  margin: 0 0 0.45rem;
+  font-size: 0.84rem;
+}
+
+.billing-resources aside button {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #a6c8ff;
+  background: transparent;
+  color: #fff;
+}
+
+.billing-qr {
+  position: fixed;
+  right: 2rem;
+  bottom: 2rem;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--o3-blue);
+  color: #fff;
+}
+
+.settings-title {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.45rem;
+}
+
+.settings-title p {
+  margin: 0 0 0.45rem;
+  color: #374151;
+  font-size: 0.75rem;
+}
+
+.profile-settings-shell {
+  border: 1px solid var(--o3-border);
+}
+
+.personal-info {
+  display: inline-block;
+  width: 66%;
+  padding: 1rem;
+  vertical-align: top;
+}
+
+.personal-info h2,
+.account-status h2,
+.insurance-details h2,
+.emergency-contacts h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  color: #161616;
+  font-size: 0.9rem;
+}
+
+.personal-info h2 svg,
+.insurance-details h2 svg,
+.emergency-contacts h2 svg {
+  color: var(--o3-blue);
+}
+
+.profile-field-grid {
+  display: grid;
+  gap: 1.1rem 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-field-grid label span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #374151;
+  font-size: 0.68rem;
+}
+
+.profile-field-grid input,
+.profile-field-grid select {
+  width: 100%;
+  height: 36px;
+  padding: 0 0.55rem;
+  border: 0;
+  border-bottom: 1px solid #a8a8a8;
+  background: #fff;
+}
+
+.profile-field-grid select {
+  background: #f4f4f4;
+}
+
+.profile-field-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.account-status {
+  display: inline-block;
+  width: 34%;
+  min-height: 346px;
+  padding: 1rem;
+  background: #f4f4f4;
+  vertical-align: top;
+}
+
+.account-status h2 svg {
+  color: var(--o3-green);
+}
+
+.account-status p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--o3-border);
+  color: #374151;
+  font-size: 0.74rem;
+}
+
+.account-status strong {
+  color: var(--o3-green);
+}
+
+.account-status b {
+  padding: 0.12rem 0.45rem;
+  background: #fff3b8;
+  color: #725000;
+}
+
+.account-status blockquote {
+  margin: 5rem 0 0;
+  padding: 0.65rem;
+  border-left: 4px solid var(--o3-blue);
+  background: #fff;
+  color: #374151;
+  font-size: 0.67rem;
+  font-style: italic;
+}
+
+.insurance-details,
+.emergency-contacts {
+  padding: 1rem;
+  border-top: 1px solid var(--o3-border);
+}
+
+.insurance-details > div {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.insurance-details article {
+  min-height: 92px;
+  padding: 0.8rem;
+  background: #f4f4f4;
+}
+
+.insurance-details article strong,
+.insurance-details article a {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.55rem;
+  color: #161616;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.insurance-details article a,
+.insurance-details article button {
+  color: var(--o3-blue);
+}
+
+.insurance-details article button {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.55rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.7rem;
+}
+
+.insurance-details > p {
+  display: flex;
+  align-items: center;
+  margin: 0.8rem 0 0;
+  color: #374151;
+  font-size: 0.68rem;
+}
+
+.insurance-details > p svg {
+  margin-right: 0.35rem;
+  color: var(--o3-green);
+}
+
+.emergency-contacts header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.emergency-contacts header button,
+.emergency-contacts td button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--o3-blue);
+}
+
+.emergency-contacts table {
+  min-width: 720px;
+}
+
+.emergency-contacts th,
+.emergency-contacts td {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.7rem;
+}
+
+.emergency-contacts td span {
+  padding: 0.2rem 0.5rem;
+  background: #e8e8e8;
+}
+
+.profile-security-footer {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #161616;
+  color: #a6c8ff;
+  font-size: 0.66rem;
+}
+
+.profile-security-footer small {
+  margin-left: auto;
+  color: #8d8d8d;
+}
+
 @media (max-width: 1060px) {
   .portal-frame {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -1632,6 +2367,38 @@ p {
 
   .appointments-summary article:nth-child(-n + 2) {
     border-bottom: 1px solid var(--o3-border);
+  }
+
+  .pharmacy-summary,
+  .billing-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pharmacy-summary > article {
+    border-right: 0;
+    border-bottom: 1px solid var(--o3-border);
+  }
+
+  .billing-resources {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .billing-resources aside {
+    grid-column: 1 / -1;
+  }
+
+  .personal-info,
+  .account-status {
+    display: block;
+    width: 100%;
+  }
+
+  .account-status {
+    min-height: auto;
+  }
+
+  .account-status blockquote {
+    margin-top: 1rem;
   }
 }
 
@@ -1878,6 +2645,68 @@ p {
   }
 
   .reschedule-note .secondary-action {
+    margin-left: 0;
+  }
+
+  .prescriptions-title,
+  .settings-title {
+    display: block;
+  }
+
+  .prescriptions-title .page-actions,
+  .settings-title .page-actions {
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  .balance-breakdown,
+  .billing-resources,
+  .profile-field-grid,
+  .insurance-details > div {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-panel footer,
+  .invoice-panel header,
+  .invoice-panel > footer {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .balance-panel footer {
+    margin-top: 1.5rem;
+  }
+
+  .invoice-panel header {
+    gap: 0.7rem;
+    padding: 0.75rem;
+  }
+
+  .invoice-panel header div {
+    flex-wrap: wrap;
+  }
+
+  .invoice-panel header label {
+    width: 100%;
+    margin-top: 0.5rem;
+    margin-left: 0;
+  }
+
+  .billing-resources aside {
+    grid-column: auto;
+  }
+
+  .billing-qr {
+    right: 1rem;
+    bottom: 4.5rem;
+  }
+
+  .profile-security-footer {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .profile-security-footer small {
     margin-left: 0;
   }
 }
