@@ -15,17 +15,24 @@ import {
 } from '@carbon/react';
 import {
   Add,
+  Attachment,
   Calendar,
   Chat,
   Document,
   Download,
+  Edit,
+  Filter,
   Home,
   Hospital,
+  Information,
+  Location,
   Logout,
   Medication,
   Notification,
+  OverflowMenuVertical,
   Renew,
   Search,
+  Send,
   Settings,
   TaskComplete,
   TestTool,
@@ -38,7 +45,7 @@ import {
 } from './api';
 import type { PortalData } from './types';
 
-type PortalRoute = 'dashboard' | 'records';
+type PortalRoute = 'dashboard' | 'records' | 'appointments' | 'messages';
 
 const initialVisitForm = {
   reason: 'Annual physical',
@@ -87,11 +94,24 @@ const immunizations = [
   { title: 'Tetanus (Tdap)', last: 'Last: Aug 12, 2019', doses: '1 dose', status: 'Up to date', tone: 'green' },
 ];
 
+const conversations = [
+  { name: 'Dr. Sarah Jenkins', time: '10:24 AM', subject: 'Lab Results Follow-up', preview: 'I have reviewed your blood work from Mon...', active: true },
+  { name: 'Nursing Team', time: 'Yesterday', subject: 'Prescription Refill Request', preview: 'Your request for Lipitor has been sent to the...', unread: true },
+  { name: 'Dr. Michael Chen', time: 'Oct 12', subject: 'Follow-up: Surgery Prep', preview: 'Please remember to fast for 12 hours prior t...' },
+  { name: 'Billing Department', time: 'Oct 10', subject: 'Statement Available', preview: 'Your October billing statement is now availa...' },
+];
+
+const appointmentRows = [
+  { date: 'Oct 26, 2023', time: '10:30 AM (Thursday)', initials: 'SJ', provider: 'Dr. Sarah Jenkins', department: 'Cardiology', location: 'Main Clinic, Suite 402', action: 'Details', secondary: 'Cancel' },
+  { date: 'Nov 02, 2023', time: '02:15 PM (Thursday)', initials: 'RM', provider: 'Dr. Robert Miller', department: 'Gastroenterology', location: 'West Wing, Room 12-B', action: 'Details', secondary: 'Cancel' },
+  { date: 'Nov 15, 2023', time: '08:00 AM (Wednesday)', initials: 'LW', provider: 'Lab Technician', department: 'Diagnostics', location: 'Central Lab, Floor 1', action: 'Instructions', secondary: 'Reschedule' },
+];
+
 const menuItems = [
   { label: 'Dashboard', route: 'dashboard' as const, icon: Home },
   { label: 'Health Records', route: 'records' as const, icon: Document },
-  { label: 'Appointments', icon: Calendar },
-  { label: 'Messages', icon: Chat },
+  { label: 'Appointments', route: 'appointments' as const, icon: Calendar },
+  { label: 'Messages', route: 'messages' as const, icon: Chat },
   { label: 'Prescriptions', icon: Medication },
   { label: 'Billing', icon: Hospital },
   { label: 'Resources', icon: Document },
@@ -99,7 +119,10 @@ const menuItems = [
 ];
 
 function getHashRoute(): PortalRoute {
-  return location.hash === '#records' ? 'records' : 'dashboard';
+  if (location.hash === '#records') return 'records';
+  if (location.hash === '#appointments') return 'appointments';
+  if (location.hash === '#messages') return 'messages';
+  return 'dashboard';
 }
 
 function IconButton({ label, children }: { label: string; children: React.ReactNode }) {
@@ -119,12 +142,14 @@ function PortalHeader({
       <nav aria-label="Primary navigation">
         <button className={route === 'dashboard' ? 'active' : ''} type="button" onClick={() => onNavigate('dashboard')}>Dashboard</button>
         <button className={route === 'records' ? 'active' : ''} type="button" onClick={() => onNavigate('records')}>Records</button>
-        <button type="button">Messages</button>
+        <button className={route === 'messages' ? 'active' : ''} type="button" onClick={() => onNavigate('messages')}>Messages</button>
       </nav>
-      <label className="o3-search">
-        <Search size={16} />
-        <input aria-label="Search portal" placeholder={route === 'records' ? 'Search records...' : 'Search portal...'} />
-      </label>
+      {route !== 'messages' && (
+        <label className="o3-search">
+          <Search size={16} />
+          <input aria-label="Search portal" placeholder={route === 'records' ? 'Search records...' : 'Search...'} />
+        </label>
+      )}
       <div className="o3-header-actions">
         <IconButton label="Notifications"><Notification size={20} /></IconButton>
         <IconButton label="Help"><span className="header-symbol">?</span></IconButton>
@@ -148,7 +173,7 @@ function PortalSidebar({
     <aside className="portal-sidebar">
       <div className="sidebar-profile">
         <div className="sidebar-avatar">
-          {route === 'records' ? <img src="/assets/patient-profile.png" alt="" /> : <UserAvatar size={25} />}
+          {route === 'records' || route === 'messages' ? <img src="/assets/patient-profile.png" alt="" /> : <UserAvatar size={25} />}
         </div>
         <div>
           <strong>Patient Portal</strong>
@@ -375,6 +400,162 @@ function RecordsPage() {
   );
 }
 
+function MessagesPage({ onSend }: { onSend: (body: string) => Promise<void> }) {
+  const [reply, setReply] = useState('');
+  const [sentReplies, setSentReplies] = useState<string[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  const handleSend = async () => {
+    const message = reply.trim();
+    if (!message) return;
+    setIsSending(true);
+    setSendError('');
+    try {
+      await onSend(message);
+      setSentReplies((current) => [...current, message]);
+      setReply('');
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Could not send message');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <main className="messages-page">
+      <section className="conversation-pane">
+        <div className="conversation-tools">
+          <div><h1>Messages</h1><IconButton label="Compose message"><Edit size={25} /></IconButton></div>
+          <label><input aria-label="Search conversations" placeholder="Search conversations..." /><Search size={23} /></label>
+        </div>
+        <div className="conversation-list">
+          {conversations.map((conversation) => (
+            <button className={`conversation-row ${conversation.active ? 'active' : ''}`} key={conversation.name} type="button">
+              <span><strong>{conversation.name}</strong>{conversation.unread && <i />}</span>
+              <time>{conversation.time}</time>
+              <b>{conversation.subject}</b>
+              <small>{conversation.preview}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="message-thread">
+        <header className="thread-heading">
+          <img src="/assets/clinician-sarah-jenkins.png" alt="Dr. Sarah Jenkins" />
+          <div>
+            <h2>Dr. Sarah Jenkins</h2>
+            <p><i /> Internal Medicine - Active Now</p>
+          </div>
+          <button className="secondary-action" type="button">Mark as Resolved</button>
+          <IconButton label="More conversation actions"><OverflowMenuVertical size={22} /></IconButton>
+        </header>
+        <div className="thread-body">
+          <time className="thread-date">Monday, October 14, 2024</time>
+          <article className="outbound-bubble">
+            <p>Hello Dr. Jenkins, I received my blood test results on the portal this morning. Most values seem normal, but I noticed my LDL cholesterol is higher than it was last year. Should I be concerned or adjust my medication?</p>
+            <time>9:15 AM <span>✓✓</span></time>
+          </article>
+          <article className="inbound-bubble">
+            <div className="lab-reference"><strong>Lab Result Reference</strong><span>Lipid Panel (LDL) <b>142 mg/dL</b></span></div>
+            <p>I have reviewed your blood work from Monday and noticed the slight increase as well. At 142 mg/dL, it is above our target for you, but not in the critical range yet. I'd like to try adjusting your diet for the next 3 months before we consider increasing your Atorvastatin dosage.</p>
+            <p>I've attached a Mediterranean diet guide that has shown great success with my patients. Let's schedule a follow-up lab in January.</p>
+            <button className="message-attachment" type="button">
+              <Document size={24} />
+              <span>Dietary_Guidelines_Lipid_Control.pdf<small>2.4 MB</small></span>
+              <Download size={22} />
+            </button>
+            <time>10:24 AM</time>
+          </article>
+          {sentReplies.map((message, index) => (
+            <article className="outbound-bubble sent-reply" key={`${message}-${index}`}>
+              <p>{message}</p>
+              <time>Just now <span>✓</span></time>
+            </article>
+          ))}
+        </div>
+        <div className="thread-composer">
+          <div className="composer-tools">
+            <strong>B</strong><em>I</em><span>☷</span>
+            <IconButton label="Attach file"><Attachment size={20} /></IconButton>
+          </div>
+          <textarea aria-label="Message reply" placeholder="Type a secure message..." value={reply} onChange={(event) => setReply(event.target.value)} />
+          <div className="composer-footer">
+            {sendError ? <span className="composer-error">{sendError}</span> : <span>Secure message to Dr. Sarah Jenkins</span>}
+            <button className="primary-action" type="button" disabled={isSending || !reply.trim()} onClick={handleSend}>
+              {isSending ? 'Sending...' : 'Send'} <Send size={20} />
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function AppointmentsPage({ onBook }: { onBook: () => void }) {
+  const [tab, setTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
+  const [providerFilter, setProviderFilter] = useState('');
+  const visibleRows = tab === 'upcoming'
+    ? appointmentRows.filter((appointment) => appointment.provider.toLowerCase().includes(providerFilter.trim().toLowerCase()))
+    : [];
+
+  return (
+    <main className="portal-main appointments-page">
+      <section className="appointments-title">
+        <div>
+          <p>Patient Portal <span>/</span> Appointments</p>
+          <h1>Appointments Management <b>3 Upcoming</b></h1>
+        </div>
+        <button className="primary-action" type="button" onClick={onBook}><Add size={18} /> Schedule New Appointment</button>
+      </section>
+
+      <section className="appointments-summary">
+        <article><span>Next Visit</span><strong>Tomorrow, 10:30 AM</strong><p>Dr. Sarah Jenkins - Cardiology</p></article>
+        <article><span>Pending Requests</span><strong>1 Request</strong><p>Lab Work - Awaiting approval</p></article>
+        <article><span>Last Visit</span><strong>Oct 12, 2023</strong><p>Annual Physical - General Medicine</p></article>
+        <article><span>Fast Actions</span><div><button type="button">Reschedule</button><button type="button">Cancel</button></div></article>
+      </section>
+
+      <section className="appointments-table-panel">
+        <div className="appointments-table-tools">
+          <nav aria-label="Appointment status">
+            <button className={tab === 'upcoming' ? 'active' : ''} type="button" onClick={() => setTab('upcoming')}>Upcoming</button>
+            <button className={tab === 'past' ? 'active' : ''} type="button" onClick={() => setTab('past')}>Past Visits</button>
+            <button className={tab === 'cancelled' ? 'active' : ''} type="button" onClick={() => setTab('cancelled')}>Cancelled</button>
+          </nav>
+          <label><input aria-label="Filter by provider" placeholder="Filter by provider..." value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)} /><Filter size={18} /></label>
+          <IconButton label="Download appointments"><Download size={21} /></IconButton>
+        </div>
+        <div className="appointments-table-wrap">
+          <table>
+            <thead><tr><th>Date & Time</th><th>Provider</th><th>Department</th><th>Location</th><th>Actions</th></tr></thead>
+            <tbody>
+              {visibleRows.map((appointment) => (
+                <tr key={appointment.date}>
+                  <td><strong>{appointment.date}</strong><span>{appointment.time}</span></td>
+                  <td><i>{appointment.initials}</i> {appointment.provider}</td>
+                  <td><b>{appointment.department}</b></td>
+                  <td><Location size={17} /> {appointment.location}</td>
+                  <td><button type="button">{appointment.action}</button><em /> <button type="button">{appointment.secondary}</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!visibleRows.length && <p className="empty-appointments">No {tab} appointments match this view.</p>}
+        </div>
+        <footer><span>Showing {visibleRows.length ? `1 - ${visibleRows.length}` : '0'} of {tab === 'upcoming' ? '12' : '0'} appointments</span><span>Items per page: 10 &nbsp; ‹ &nbsp; ›</span></footer>
+      </section>
+
+      <aside className="reschedule-note">
+        <Information size={28} />
+        <p><strong>Need to reschedule within 24 hours?</strong><span>For urgent changes or appointments within the next 24 hours, please contact the clinic directly at +1 (555) 010-9988.</span></p>
+        <button className="secondary-action" type="button">Contact Support</button>
+      </aside>
+    </main>
+  );
+}
+
 function PortalApp({ onLogout }: { onLogout: () => void }) {
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -447,6 +628,11 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const handleThreadReply = async (body: string) => {
+    const message = await sendMessage('Lab Results Follow-up', body);
+    setPortal((current) => current ? { ...current, messages: [message, ...current.messages] } : current);
+  };
+
   if (isLoading) return <main className="app-loading"><InlineLoading description="Loading patient portal" /></main>;
   if (loadError || !portal) return <main className="app-loading"><InlineNotification kind="error" title="Could not load portal" subtitle={loadError || 'The API did not return portal data.'} /></main>;
 
@@ -455,9 +641,10 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
       <PortalHeader route={route} onNavigate={navigate} />
       <div className="portal-frame">
         <PortalSidebar route={route} onNavigate={navigate} onLogout={onLogout} />
-        {route === 'records'
-          ? <RecordsPage />
-          : <Dashboard onBook={() => setBookingOpen(true)} onMessage={() => setMessageOpen(true)} onNavigate={navigate} />}
+        {route === 'records' && <RecordsPage />}
+        {route === 'appointments' && <AppointmentsPage onBook={() => setBookingOpen(true)} />}
+        {route === 'messages' && <MessagesPage onSend={handleThreadReply} />}
+        {route === 'dashboard' && <Dashboard onBook={() => setBookingOpen(true)} onMessage={() => navigate('messages')} onNavigate={navigate} />}
       </div>
 
       <ComposedModal open={bookingOpen} onClose={() => setBookingOpen(false)} size="sm">
