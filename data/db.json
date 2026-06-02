@@ -2,15 +2,15 @@
   "users": [],
   "sessions": [],
   "patient": {
-    "name": "Aarav Sharma",
+    "name": "Sarah Mitchell",
     "age": 34,
-    "identifier": "OpenMRS ID: 100GEJ",
-    "location": "Kathmandu Clinic",
-    "primaryCondition": "Type 2 diabetes care plan",
-    "careTeam": "Dr. Mina K.C. and Nurse J. Thapa",
-    "insurance": "National Health Plan",
-    "preferredLanguage": "Nepali / English",
-    "emergencyContact": "Sita Sharma"
+    "identifier": "Health ID: 100-234-567",
+    "location": "Health Center 1",
+    "primaryCondition": "Preventive care plan",
+    "careTeam": "Dr. James Wilson and Dr. Emily Chen",
+    "insurance": "HealthCare Plus",
+    "preferredLanguage": "English",
+    "emergencyContact": "Michael Mitchell"
   },
   "preferences": {
     "shareRecords": true
