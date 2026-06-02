@@ -20,13 +20,16 @@ The local app runs at `http://127.0.0.1:5173` and proxies API calls to `http://1
 ## API
 
 - `GET /api/health`
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 - `GET /api/portal`
 - `PATCH /api/tasks/:taskId`
 - `PATCH /api/preferences/share-records`
 - `POST /api/appointments/requests`
 - `POST /api/messages`
 
-Data is stored in `data/db.json`.
+Data is stored in `data/db.json`. Passwords are stored as salted scrypt hashes and portal routes require a valid session token.
 
 ## Build
 
