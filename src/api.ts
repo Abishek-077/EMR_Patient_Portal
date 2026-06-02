@@ -1,4 +1,14 @@
-import type { AppointmentRequest, Message, PortalData, Task, VisitRequestInput } from './types';
+import type {
+  AppointmentRequest,
+  BillingData,
+  MedicationRequest,
+  Message,
+  PortalData,
+  ProfileSettings,
+  RefillRequest,
+  Task,
+  VisitRequestInput,
+} from './types';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('emr-auth-token');
@@ -87,5 +97,31 @@ export function sendMessage(subject: string, body: string) {
   return request<Message>('/api/messages', {
     method: 'POST',
     body: JSON.stringify({ subject, body }),
+  });
+}
+
+export function requestPrescriptionRefill(prescriptionId: string) {
+  return request<RefillRequest>(`/api/prescriptions/${prescriptionId}/refills`, {
+    method: 'POST',
+  });
+}
+
+export function requestNewMedication(medicationName: string, notes: string) {
+  return request<MedicationRequest>('/api/medications/requests', {
+    method: 'POST',
+    body: JSON.stringify({ medicationName, notes }),
+  });
+}
+
+export function payFullBalance() {
+  return request<BillingData>('/api/billing/payments', {
+    method: 'POST',
+  });
+}
+
+export function saveProfileSettings(profile: ProfileSettings) {
+  return request<ProfileSettings>('/api/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(profile),
   });
 }

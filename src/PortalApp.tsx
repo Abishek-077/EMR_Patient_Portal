@@ -16,8 +16,10 @@ import {
 import {
   Add,
   Attachment,
+  Building,
   Calendar,
   Chat,
+  CheckmarkOutline,
   Document,
   Download,
   Edit,
@@ -25,27 +27,40 @@ import {
   Home,
   Hospital,
   Information,
+  Launch,
   Location,
   Logout,
   Medication,
+  Money,
   Notification,
   OverflowMenuVertical,
+  Printer,
+  QrCode,
   Renew,
+  Report,
   Search,
   Send,
+  Security,
   Settings,
   TaskComplete,
   TestTool,
+  TrashCan,
+  UserProfile,
   UserAvatar,
+  Wallet,
 } from '@carbon/icons-react';
 import {
   createVisitRequest,
   getPortalData,
+  payFullBalance,
+  requestNewMedication,
+  requestPrescriptionRefill,
+  saveProfileSettings,
   sendMessage,
 } from './api';
-import type { PortalData } from './types';
+import type { BillingData, PortalData, Prescription, ProfileSettings } from './types';
 
-type PortalRoute = 'dashboard' | 'records' | 'appointments' | 'messages';
+type PortalRoute = 'dashboard' | 'records' | 'appointments' | 'messages' | 'prescriptions' | 'billing' | 'settings';
 
 const initialVisitForm = {
   reason: 'Annual physical',
@@ -112,8 +127,8 @@ const menuItems = [
   { label: 'Health Records', route: 'records' as const, icon: Document },
   { label: 'Appointments', route: 'appointments' as const, icon: Calendar },
   { label: 'Messages', route: 'messages' as const, icon: Chat },
-  { label: 'Prescriptions', icon: Medication },
-  { label: 'Billing', icon: Hospital },
+  { label: 'Prescriptions', route: 'prescriptions' as const, icon: Medication },
+  { label: 'Billing', route: 'billing' as const, icon: Money },
   { label: 'Resources', icon: Document },
   { label: 'Family Access', icon: UserAvatar },
 ];
@@ -122,6 +137,9 @@ function getHashRoute(): PortalRoute {
   if (location.hash === '#records') return 'records';
   if (location.hash === '#appointments') return 'appointments';
   if (location.hash === '#messages') return 'messages';
+  if (location.hash === '#prescriptions') return 'prescriptions';
+  if (location.hash === '#billing') return 'billing';
+  if (location.hash === '#settings') return 'settings';
   return 'dashboard';
 }
 
@@ -194,7 +212,7 @@ function PortalSidebar({
         ))}
       </nav>
       <div className="sidebar-footer">
-        <button type="button"><Settings size={20} /><span>Settings</span></button>
+        <button className={route === 'settings' ? 'active' : ''} type="button" onClick={() => onNavigate('settings')}><Settings size={20} /><span>Settings</span></button>
         <button type="button" onClick={onLogout}><Logout size={20} /><span>Logout</span></button>
       </div>
     </aside>
@@ -556,6 +574,246 @@ function AppointmentsPage({ onBook }: { onBook: () => void }) {
   );
 }
 
+function PrescriptionsPage({
+  prescriptions,
+  refillRequestIds,
+  onRefill,
+  onRequestMedication,
+}: {
+  prescriptions: Prescription[];
+  refillRequestIds: string[];
+  onRefill: (prescriptionId: string) => Promise<void>;
+  onRequestMedication: (medicationName: string, notes: string) => Promise<void>;
+}) {
+  const [pendingRefill, setPendingRefill] = useState('');
+  const [notice, setNotice] = useState('');
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [medicationName, setMedicationName] = useState('');
+  const [notes, setNotes] = useState('');
+  const [requestingMedication, setRequestingMedication] = useState(false);
+
+  const handleRefill = async (prescriptionId: string) => {
+    setPendingRefill(prescriptionId);
+    setNotice('');
+    try {
+      await onRefill(prescriptionId);
+      setNotice('Refill request sent to your preferred pharmacy.');
+    } finally {
+      setPendingRefill('');
+    }
+  };
+
+  const handleMedicationRequest = async () => {
+    if (!medicationName.trim()) return;
+    setRequestingMedication(true);
+    try {
+      await onRequestMedication(medicationName, notes);
+      setRequestOpen(false);
+      setMedicationName('');
+      setNotes('');
+      setNotice('Medication request sent for clinical review.');
+    } finally {
+      setRequestingMedication(false);
+    }
+  };
+
+  return (
+    <main className="portal-main prescriptions-page">
+      <section className="prescriptions-title">
+        <div><h1>Active Prescriptions</h1><p>Manage your current medications and refill requests.</p></div>
+        <div className="page-actions">
+          <button className="primary-action" type="button" onClick={() => setRequestOpen(true)}><Add size={18} /> Request New Medication</button>
+          <button className="secondary-action" type="button"><Printer size={17} /> Print List</button>
+        </div>
+      </section>
+
+      {notice && <p className="workspace-notice">{notice}</p>}
+
+      <section className="pharmacy-summary">
+        <article>
+          <div><span>Preferred Pharmacy</span><button type="button"><Edit size={15} /> Change</button></div>
+          <a href="#prescriptions">CVS Pharmacy #04322</a>
+          <p>123 Health Ave, Medical District<br />Boston, MA 02115</p>
+          <footer><p><span>Phone</span><strong>(617) 555-0199</strong></p><p><span>Hours</span><strong>Open 24 Hours</strong></p></footer>
+        </article>
+        <aside>
+          <h2>Medication Summary</h2>
+          <p><span>Active Medications</span><strong>06</strong></p>
+          <p><span>Due for Refill</span><strong className="text-red">02</strong></p>
+          <p><span>Pending Requests</span><strong>01</strong></p>
+        </aside>
+      </section>
+
+      <section className="prescriptions-table-panel">
+        <div className="prescriptions-table-wrap">
+          <table>
+            <thead><tr><th>Medication & Dosage</th><th>Frequency</th><th>Started</th><th>Refills Remaining</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              {prescriptions.map((prescription) => {
+                const requested = refillRequestIds.includes(prescription.id);
+                return (
+                  <tr className={prescription.status === 'Pending Request' ? 'muted-row' : ''} key={prescription.id}>
+                    <td>{prescription.name}<small>{prescription.detail}</small></td>
+                    <td>{prescription.frequency}</td>
+                    <td>{prescription.started}</td>
+                    <td>{prescription.refillCount}<small className={prescription.status === 'Refill Due' ? 'text-red' : ''}>{prescription.refillDetail}</small></td>
+                    <td><span className={`rx-status rx-status--${prescription.status.toLowerCase().replaceAll(' ', '-')}`}>{prescription.status}</span></td>
+                    <td>
+                      <button
+                        className={prescription.status === 'Pending Request' || requested ? 'rx-action rx-action--muted' : 'rx-action'}
+                        type="button"
+                        disabled={prescription.status === 'Pending Request' || requested || pendingRefill === prescription.id}
+                        onClick={() => handleRefill(prescription.id)}
+                      >
+                        {requested || prescription.status === 'Pending Request' ? 'Pending' : pendingRefill === prescription.id ? 'Sending...' : 'Refill'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <footer><span>Showing 1-5 of 12 prescriptions</span><span>‹ &nbsp; Page 1 of 3 &nbsp; ›</span></footer>
+      </section>
+
+      <aside className="safety-note"><Information size={25} /><p><strong>Safety Information</strong><span>Always consult with your doctor before starting or stopping any medications. If you experience severe side effects, please contact your primary care provider or visit the nearest emergency department immediately.</span></p></aside>
+
+      <ComposedModal open={requestOpen} onClose={() => setRequestOpen(false)} size="sm">
+        <ModalHeader title="Request new medication" />
+        <ModalBody>
+          <Stack gap={5}>
+            <TextInput id="new-medication-name" labelText="Medication name" value={medicationName} onChange={(event) => setMedicationName(event.target.value)} />
+            <TextArea id="new-medication-notes" labelText="Reason or notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
+          </Stack>
+        </ModalBody>
+        <ModalFooter>
+          <Button kind="secondary" onClick={() => setRequestOpen(false)}>Cancel</Button>
+          <Button onClick={handleMedicationRequest} disabled={!medicationName.trim() || requestingMedication}>{requestingMedication ? 'Sending...' : 'Send request'}</Button>
+        </ModalFooter>
+      </ComposedModal>
+    </main>
+  );
+}
+
+function BillingPage({ billing, onPay }: { billing: BillingData; onPay: () => Promise<void> }) {
+  const [invoiceFilter, setInvoiceFilter] = useState<'All' | 'Paid' | 'Pending'>('All');
+  const [paying, setPaying] = useState(false);
+  const [notice, setNotice] = useState('');
+  const invoices = billing.invoices.filter((invoice) => invoiceFilter === 'All' || invoice.status === invoiceFilter);
+
+  const handlePayment = async () => {
+    setPaying(true);
+    try {
+      await onPay();
+      setNotice('Your full outstanding balance has been paid.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  return (
+    <main className="portal-main billing-page">
+      <section className="billing-title"><h1>Billing & Payments</h1><p>Review your medical statements, track invoice history, and manage payment methods.</p></section>
+      {notice && <p className="workspace-notice">{notice}</p>}
+
+      <div className="billing-top-grid">
+        <section className="balance-panel">
+          <div><span>Total Outstanding Balance</span>{billing.paymentStatus === 'Due' ? <b>Payment Due: Oct 25</b> : <b className="paid-label">Paid in Full</b>}</div>
+          <strong>${billing.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+          <div className="balance-breakdown">
+            <p><span>Consultation</span><strong>$450.00</strong></p><p><span>Laboratory</span><strong>$320.50</strong></p><p><span>Radiology</span><strong>$478.00</strong></p><p><span>Pharmacy</span><strong>$0.00</strong></p>
+          </div>
+          <footer><button className="primary-action" type="button" disabled={billing.outstandingBalance === 0 || paying} onClick={handlePayment}><Money size={19} /> {paying ? 'Processing...' : billing.outstandingBalance === 0 ? 'Balance Paid' : 'Pay Full Balance'}</button><button className="secondary-action" type="button"><Report size={19} /> View Statement</button></footer>
+        </section>
+        <section className="payment-methods">
+          <h2>Payment Methods</h2>
+          {billing.paymentMethods.map((method) => (
+            <article key={method.id}>{method.type === 'Card' ? <Wallet size={22} /> : <Building size={22} />}<p><strong>{method.label}</strong><span>{method.detail}</span></p>{method.isDefault && <b>Default</b>}</article>
+          ))}
+          <button type="button"><Add size={20} /> Add New Method</button>
+        </section>
+      </div>
+
+      <section className="invoice-panel">
+        <header><h2>Invoice History</h2><div>{(['All', 'Paid', 'Pending'] as const).map((filter) => <button className={invoiceFilter === filter ? 'active' : ''} type="button" key={filter} onClick={() => setInvoiceFilter(filter)}>{filter}</button>)}<label><Search size={15} /><input aria-label="Search invoices" placeholder="Search invoices..." /></label></div></header>
+        <div className="invoice-table-wrap">
+          <table><thead><tr><th>Invoice ID</th><th>Date</th><th>Service / Description</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>
+            {invoices.map((invoice) => <tr key={invoice.id}><td>{invoice.id}</td><td>{invoice.date}</td><td>{invoice.description}</td><td>${invoice.amount.toFixed(2)}</td><td><span className={`invoice-status invoice-status--${invoice.status.toLowerCase()}`}>● {invoice.status}</span></td><td>{invoice.status === 'Overdue' ? <button type="button" onClick={handlePayment}>Pay Now</button> : invoice.status === 'Paid' ? <button type="button"><Download size={14} /> PDF</button> : <button type="button">Details</button>}</td></tr>)}
+          </tbody></table>
+        </div>
+        <footer><span>Showing 1-{invoices.length} of 24 invoices</span><span>‹ &nbsp; <b>1</b> &nbsp; 2 &nbsp; 3 &nbsp; ›</span></footer>
+      </section>
+
+      <section className="billing-resources">
+        <article><Document size={23} /><p><strong>Tax Form 1095-B</strong><span>2023 Annual Report</span></p></article>
+        <article><Security size={23} /><p><strong>Insurance Policy</strong><span>Current: BlueShield Gold</span></p></article>
+        <aside><h3>Need help with your bill?</h3><p>Contact our financial counselors for payment plans or insurance disputes.</p><button type="button">Speak with Support</button></aside>
+      </section>
+      <button className="billing-qr" aria-label="Open billing QR code" title="Open billing QR code" type="button"><QrCode size={22} /></button>
+    </main>
+  );
+}
+
+const emergencyContacts = [
+  { name: 'Sarah Smith', relationship: 'Spouse', primaryPhone: '(555) 012-9988', alternatePhone: '—', access: 'Full Proxy' },
+  { name: 'Robert Wilson', relationship: 'Close Friend', primaryPhone: '(555) 123-4567', alternatePhone: '(555) 765-4321', access: 'Emergency Only' },
+];
+
+function ProfileSettingsPage({ profile, onSave }: { profile: ProfileSettings; onSave: (profile: ProfileSettings) => Promise<void> }) {
+  const [form, setForm] = useState(profile);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
+  useEffect(() => setForm(profile), [profile]);
+  const update = (field: keyof ProfileSettings, value: string) => setForm((current) => ({ ...current, [field]: value }));
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(form);
+      setNotice('Profile changes saved.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <main className="portal-main profile-settings-page">
+      <section className="settings-title"><div><p>Settings / <strong>Profile Settings</strong></p><h1>Profile Settings</h1><span>Update your personal information, insurance details, and emergency contacts.</span></div><div className="page-actions"><button className="secondary-action" type="button" onClick={() => setForm(profile)}>Discard changes</button><button className="primary-action" type="button" disabled={saving} onClick={handleSave}>{saving ? 'Saving...' : 'Save Profile'}</button></div></section>
+      {notice && <p className="workspace-notice">{notice}</p>}
+
+      <section className="profile-settings-shell">
+        <div className="personal-info">
+          <h2><UserProfile size={19} /> Personal Information</h2>
+          <div className="profile-field-grid">
+            <label><span>Full Name</span><input aria-label="Full Name" value={form.fullName} onChange={(event) => update('fullName', event.target.value)} /></label>
+            <label><span>Email Address</span><input aria-label="Email Address" value={form.email} onChange={(event) => update('email', event.target.value)} /></label>
+            <label><span>Phone Number</span><input aria-label="Phone Number" value={form.phone} onChange={(event) => update('phone', event.target.value)} /></label>
+            <label><span>Date of Birth</span><input aria-label="Date of Birth" value={form.dateOfBirth} onChange={(event) => update('dateOfBirth', event.target.value)} /></label>
+            <label className="wide"><span>Residential Address</span><input aria-label="Residential Address" value={form.address} onChange={(event) => update('address', event.target.value)} /></label>
+            <label><span>Preferred Language</span><select aria-label="Preferred Language" value={form.language} onChange={(event) => update('language', event.target.value)}><option>English (US)</option><option>Spanish</option></select></label>
+            <label><span>Timezone</span><select aria-label="Timezone" value={form.timezone} onChange={(event) => update('timezone', event.target.value)}><option>(GMT-08:00) Pacific Time</option><option>(GMT-05:00) Eastern Time</option></select></label>
+          </div>
+        </div>
+        <aside className="account-status">
+          <h2><Security size={19} /> Account Status</h2>
+          <p><span>Profile Completion</span><strong>92%</strong></p><p><span>2FA Security</span><b>Enabled</b></p><p><span>Last Login</span><small>Oct 24, 2023 · 08:42 AM</small></p>
+          <blockquote>"Ensure your residential address is current for mailing laboratory results and official health documentation."</blockquote>
+        </aside>
+        <section className="insurance-details">
+          <h2><Security size={19} /> Insurance Details</h2>
+          <div><article><span>Primary Provider</span><a href="#settings">BlueCross BlueShield <Launch size={12} /></a><button type="button">Change <Launch size={11} /></button></article><article><span>Member ID</span><strong>BCBS-992033481</strong></article><article><span>Group Number</span><strong>TX-9001-ALPHA</strong></article><article><span>Policy Holder</span><strong>Self (Johnathan Smith)</strong></article></div>
+          <p><CheckmarkOutline size={14} /> Active through 12/2024 &nbsp;&nbsp; ⓘ Verified on Oct 01, 2023</p>
+        </section>
+        <section className="emergency-contacts">
+          <header><h2><UserProfile size={19} /> Emergency Contacts</h2><button type="button"><Add size={17} /> Add Contact</button></header>
+          <div className="contacts-table-wrap"><table><thead><tr><th>Name</th><th>Relationship</th><th>Primary Phone</th><th>Alt Phone</th><th>Access Level</th><th>Actions</th></tr></thead><tbody>{emergencyContacts.map((contact) => <tr key={contact.name}><td><strong>{contact.name}</strong></td><td>{contact.relationship}</td><td>{contact.primaryPhone}</td><td>{contact.alternatePhone}</td><td><span>{contact.access}</span></td><td><button type="button" aria-label={`Edit ${contact.name}`}><Edit size={17} /></button><button type="button" aria-label={`Delete ${contact.name}`}><TrashCan size={17} /></button></td></tr>)}</tbody></table></div>
+        </section>
+        <footer className="profile-security-footer"><span>▣ End-to-End Encrypted Data</span><span>⌁ HIPAA Compliant Environment</span><small>Internal Build: v4.2.1-stable · Last Sync: 2 mins ago</small></footer>
+      </section>
+    </main>
+  );
+}
+
 function PortalApp({ onLogout }: { onLogout: () => void }) {
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -633,6 +891,28 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
     setPortal((current) => current ? { ...current, messages: [message, ...current.messages] } : current);
   };
 
+  const handlePrescriptionRefill = async (prescriptionId: string) => {
+    const refillRequest = await requestPrescriptionRefill(prescriptionId);
+    setPortal((current) => current && !current.refillRequests.some((request) => request.id === refillRequest.id)
+      ? { ...current, refillRequests: [refillRequest, ...current.refillRequests] }
+      : current);
+  };
+
+  const handleMedicationRequest = async (medicationName: string, notes: string) => {
+    const medicationRequest = await requestNewMedication(medicationName, notes);
+    setPortal((current) => current ? { ...current, medicationRequests: [medicationRequest, ...current.medicationRequests] } : current);
+  };
+
+  const handleBalancePayment = async () => {
+    const billing = await payFullBalance();
+    setPortal((current) => current ? { ...current, billing } : current);
+  };
+
+  const handleProfileSave = async (profileSettings: ProfileSettings) => {
+    const savedProfile = await saveProfileSettings(profileSettings);
+    setPortal((current) => current ? { ...current, profileSettings: savedProfile } : current);
+  };
+
   if (isLoading) return <main className="app-loading"><InlineLoading description="Loading patient portal" /></main>;
   if (loadError || !portal) return <main className="app-loading"><InlineNotification kind="error" title="Could not load portal" subtitle={loadError || 'The API did not return portal data.'} /></main>;
 
@@ -644,6 +924,9 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
         {route === 'records' && <RecordsPage />}
         {route === 'appointments' && <AppointmentsPage onBook={() => setBookingOpen(true)} />}
         {route === 'messages' && <MessagesPage onSend={handleThreadReply} />}
+        {route === 'prescriptions' && <PrescriptionsPage prescriptions={portal.prescriptions} refillRequestIds={portal.refillRequests.map((request) => request.prescriptionId)} onRefill={handlePrescriptionRefill} onRequestMedication={handleMedicationRequest} />}
+        {route === 'billing' && <BillingPage billing={portal.billing} onPay={handleBalancePayment} />}
+        {route === 'settings' && <ProfileSettingsPage profile={portal.profileSettings} onSave={handleProfileSave} />}
         {route === 'dashboard' && <Dashboard onBook={() => setBookingOpen(true)} onMessage={() => navigate('messages')} onNavigate={navigate} />}
       </div>
 

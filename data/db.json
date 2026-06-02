@@ -91,6 +91,119 @@
       "status": "Optional"
     }
   ],
+  "prescriptions": [
+    {
+      "id": "rx-lisinopril",
+      "name": "Lisinopril 10 mg Tablet",
+      "detail": "Oral • Rx: 4422991-A",
+      "frequency": "Once daily",
+      "started": "Jan 12, 2024",
+      "refillCount": "0 left",
+      "refillDetail": "Needs Authorization",
+      "status": "Refill Due"
+    },
+    {
+      "id": "rx-metformin",
+      "name": "Metformin 500 mg ER",
+      "detail": "Oral • Rx: 4422991-B",
+      "frequency": "Twice daily with meals",
+      "started": "Mar 05, 2024",
+      "refillCount": "2 left",
+      "refillDetail": "Expires Sep 2024",
+      "status": "Active"
+    },
+    {
+      "id": "rx-atorvastatin",
+      "name": "Atorvastatin 20 mg Tablet",
+      "detail": "Oral • Rx: 4422991-C",
+      "frequency": "Once daily at bedtime",
+      "started": "Feb 20, 2024",
+      "refillCount": "1 left",
+      "refillDetail": "Expires Aug 2024",
+      "status": "Active"
+    },
+    {
+      "id": "rx-albuterol",
+      "name": "Albuterol HFA Inhaler",
+      "detail": "Inhalation • Rx: 4422991-D",
+      "frequency": "As needed for SOB",
+      "started": "Jan 10, 2024",
+      "refillCount": "3 left",
+      "refillDetail": "Expires Jan 2025",
+      "status": "Active"
+    },
+    {
+      "id": "rx-amoxicillin",
+      "name": "Amoxicillin 500 mg",
+      "detail": "Oral • Rx: Pending",
+      "frequency": "Every 8 hours",
+      "started": "—",
+      "refillCount": "—",
+      "refillDetail": "",
+      "status": "Pending Request"
+    }
+  ],
+  "refillRequests": [],
+  "medicationRequests": [],
+  "billing": {
+    "outstandingBalance": 1248.5,
+    "paymentStatus": "Due",
+    "paymentMethods": [
+      {
+        "id": "method-visa",
+        "type": "Card",
+        "label": "Visa •••• 4242",
+        "detail": "Expires 12/26",
+        "isDefault": true
+      },
+      {
+        "id": "method-bank",
+        "type": "Bank",
+        "label": "Chase Savings •••• 1902",
+        "detail": "Direct Deposit"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "INV-2023-089",
+        "date": "Oct 12, 2023",
+        "description": "Annual Wellness Exam - Dr. Smith",
+        "amount": 450,
+        "status": "Overdue"
+      },
+      {
+        "id": "INV-2023-082",
+        "date": "Sep 28, 2023",
+        "description": "Blood Panel & Diagnostics",
+        "amount": 185.2,
+        "status": "Paid"
+      },
+      {
+        "id": "INV-2023-077",
+        "date": "Sep 15, 2023",
+        "description": "Pharmacy - Antibiotics Refill",
+        "amount": 34.5,
+        "status": "Pending"
+      },
+      {
+        "id": "INV-2023-065",
+        "date": "Aug 22, 2023",
+        "description": "Radiology - Chest X-Ray",
+        "amount": 210,
+        "status": "Paid"
+      }
+    ],
+    "payments": []
+  },
+  "profileSettings": {
+    "fullName": "Johnathan Alexander Smith",
+    "email": "j.smith@medical-portal.org",
+    "phone": "+1 (555) 012-3456",
+    "dateOfBirth": "05/12/1985",
+    "address": "742 Evergreen Terrace, Springfield, OR 97403",
+    "language": "English (US)",
+    "timezone": "(GMT-08:00) Pacific Time"
+  },
   "labResults": [
     {
       "label": "A1c",

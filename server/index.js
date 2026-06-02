@@ -277,6 +277,110 @@ app.post('/api/messages', requireAuth, async (request, response, next) => {
   }
 });
 
+app.post('/api/prescriptions/:prescriptionId/refills', requireAuth, async (request, response, next) => {
+  try {
+    const refillRequest = await updateDb((db) => {
+      db.refillRequests ||= [];
+      const prescription = db.prescriptions.find((item) => item.id === request.params.prescriptionId);
+      if (!prescription) return null;
+
+      const existingRequest = db.refillRequests.find(
+        (item) => item.prescriptionId === prescription.id && item.status === 'Queued',
+      );
+      if (existingRequest) return existingRequest;
+
+      const createdRequest = {
+        id: `refill-${Date.now()}`,
+        prescriptionId: prescription.id,
+        prescriptionName: prescription.name,
+        status: 'Queued',
+        createdAt: new Date().toISOString(),
+      };
+      db.refillRequests.unshift(createdRequest);
+      return createdRequest;
+    });
+
+    if (!refillRequest) {
+      response.status(404).json({ error: 'Prescription not found' });
+      return;
+    }
+
+    response.status(201).json(refillRequest);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/medications/requests', requireAuth, async (request, response, next) => {
+  try {
+    const { medicationName, notes } = request.body;
+    if (!medicationName) {
+      response.status(400).json({ error: 'medicationName is required' });
+      return;
+    }
+
+    const medicationRequest = await updateDb((db) => {
+      db.medicationRequests ||= [];
+      const createdRequest = {
+        id: `medication-${Date.now()}`,
+        medicationName: String(medicationName).trim(),
+        notes: String(notes || '').trim(),
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
+      };
+      db.medicationRequests.unshift(createdRequest);
+      return createdRequest;
+    });
+
+    response.status(201).json(medicationRequest);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/billing/payments', requireAuth, async (_request, response, next) => {
+  try {
+    const billing = await updateDb((db) => {
+      const amount = db.billing.outstandingBalance;
+      if (amount > 0) {
+        db.billing.payments.unshift({
+          id: `payment-${Date.now()}`,
+          amount,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      db.billing.outstandingBalance = 0;
+      db.billing.paymentStatus = 'Paid';
+      return db.billing;
+    });
+
+    response.status(201).json(billing);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/profile', requireAuth, async (request, response, next) => {
+  try {
+    const requiredFields = ['fullName', 'email', 'phone', 'dateOfBirth', 'address', 'language', 'timezone'];
+    if (requiredFields.some((field) => !String(request.body[field] || '').trim())) {
+      response.status(400).json({ error: 'All profile fields are required' });
+      return;
+    }
+
+    const profile = await updateDb((db) => {
+      db.profileSettings = Object.fromEntries(
+        requiredFields.map((field) => [field, String(request.body[field]).trim()]),
+      );
+      return db.profileSettings;
+    });
+
+    response.json(profile);
+  } catch (error) {
+    next(error);
+  }
+});
+
 if (existsSync(distDir)) {
   app.use(express.static(distDir));
   app.get(/.*/, (_request, response) => {
