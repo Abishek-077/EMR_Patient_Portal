@@ -10,6 +10,8 @@ const dbPath = path.join(dataDir, 'db.json');
 const tmpPath = path.join(dataDir, 'db.tmp.json');
 
 const seedData = {
+  users: [],
+  sessions: [],
   patient: {
     name: 'Aarav Sharma',
     age: 34,

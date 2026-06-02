@@ -1,9 +1,11 @@
 import type { AppointmentRequest, Message, PortalData, Task, VisitRequestInput } from './types';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('emr-auth-token');
   const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
@@ -14,7 +16,46 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     throw new Error(errorBody.error || response.statusText);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
+}
+
+export type AuthResponse = {
+  token: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+};
+
+export function signup(input: {
+  fullName: string;
+  email: string;
+  dateOfBirth: string;
+  patientId: string;
+  password: string;
+}) {
+  return request<AuthResponse>('/api/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function login(usernameOrEmail: string, password: string) {
+  return request<AuthResponse>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ usernameOrEmail, password }),
+  });
+}
+
+export function logout() {
+  return request<void>('/api/auth/logout', {
+    method: 'POST',
+  });
 }
 
 export function getPortalData() {
