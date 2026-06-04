@@ -50,15 +50,20 @@ import {
   Wallet,
 } from '@carbon/icons-react';
 import {
+  cancelAppointment,
   createVisitRequest,
   getPortalData,
   payFullBalance,
   requestNewMedication,
   requestPrescriptionRefill,
+  rescheduleAppointment,
   saveProfileSettings,
+  scheduleAppointment,
+  resolveConversation,
+  sendConversationMessage,
   sendMessage,
 } from './api';
-import type { BillingData, PortalData, Prescription, ProfileSettings } from './types';
+import type { Appointment, BillingData, MessageConversation, PortalData, Prescription, ProfileSettings } from './types';
 
 type PortalRoute = 'dashboard' | 'records' | 'appointments' | 'messages' | 'prescriptions' | 'billing' | 'settings';
 
@@ -143,8 +148,8 @@ function getHashRoute(): PortalRoute {
   return 'dashboard';
 }
 
-function IconButton({ label, children }: { label: string; children: React.ReactNode }) {
-  return <button className="icon-button" type="button" aria-label={label} title={label}>{children}</button>;
+function IconButton({ label, children, onClick }: { label: string; children: React.ReactNode; onClick?: () => void }) {
+  return <button className="icon-button" type="button" aria-label={label} title={label} onClick={onClick}>{children}</button>;
 }
 
 function PortalHeader({
@@ -574,12 +579,281 @@ function AppointmentsPage({ onBook }: { onBook: () => void }) {
   );
 }
 
+function MessagesPageLive({
+  conversations,
+  onSend,
+  onResolve,
+  onCompose,
+}: {
+  conversations: MessageConversation[];
+  onSend: (conversationId: string, body: string) => Promise<void>;
+  onResolve: (conversationId: string, resolved: boolean) => Promise<void>;
+  onCompose: () => void;
+}) {
+  const [selectedConversationId, setSelectedConversationId] = useState(conversations[0]?.id || '');
+  const [conversationSearch, setConversationSearch] = useState('');
+  const [reply, setReply] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  useEffect(() => {
+    if (!conversations.some((conversation) => conversation.id === selectedConversationId)) {
+      setSelectedConversationId(conversations[0]?.id || '');
+    }
+  }, [conversations, selectedConversationId]);
+
+  const visibleConversations = conversations.filter((conversation) => {
+    const query = conversationSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [conversation.participantName, conversation.subject, conversation.preview].some((value) => value.toLowerCase().includes(query));
+  });
+  const activeConversation = conversations.find((conversation) => conversation.id === selectedConversationId) || conversations[0];
+
+  const handleSend = async () => {
+    if (!activeConversation) return;
+    const message = reply.trim();
+    if (!message) return;
+    setIsSending(true);
+    setSendError('');
+    try {
+      await onSend(activeConversation.id, message);
+      setReply('');
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Could not send message');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleResolve = async () => {
+    if (!activeConversation) return;
+    setIsResolving(true);
+    setSendError('');
+    try {
+      await onResolve(activeConversation.id, !activeConversation.resolved);
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Could not update conversation');
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  if (!activeConversation) {
+    return (
+      <main className="messages-page">
+        <section className="conversation-pane">
+          <div className="conversation-tools">
+            <div><h1>Messages</h1><IconButton label="Compose message" onClick={onCompose}><Edit size={25} /></IconButton></div>
+          </div>
+        </section>
+        <section className="message-thread"><p className="empty-appointments">No secure messages yet.</p></section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="messages-page">
+      <section className="conversation-pane">
+        <div className="conversation-tools">
+          <div><h1>Messages</h1><IconButton label="Compose message" onClick={onCompose}><Edit size={25} /></IconButton></div>
+          <label><input aria-label="Search conversations" placeholder="Search conversations..." value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} /><Search size={23} /></label>
+        </div>
+        <div className="conversation-list">
+          {visibleConversations.map((conversation) => (
+            <button className={`conversation-row ${conversation.id === activeConversation.id ? 'active' : ''}`} key={conversation.id} type="button" onClick={() => setSelectedConversationId(conversation.id)}>
+              <span><strong>{conversation.participantName}</strong>{conversation.unread && <i />}</span>
+              <time>{conversation.time}</time>
+              <b>{conversation.subject}</b>
+              <small>{conversation.preview}</small>
+            </button>
+          ))}
+          {!visibleConversations.length && <p className="empty-appointments">No conversations match this search.</p>}
+        </div>
+      </section>
+
+      <section className="message-thread">
+        <header className="thread-heading">
+          <img src="/assets/clinician-sarah-jenkins.png" alt={activeConversation.participantName} />
+          <div>
+            <h2>{activeConversation.participantName}</h2>
+            <p><i /> {activeConversation.participantRole} - {activeConversation.activeNow ? 'Active Now' : activeConversation.resolved ? 'Resolved' : 'Secure Thread'}</p>
+          </div>
+          <button className="secondary-action" type="button" disabled={isResolving} onClick={handleResolve}>
+            {isResolving ? 'Updating...' : activeConversation.resolved ? 'Reopen Thread' : 'Mark as Resolved'}
+          </button>
+          <IconButton label="More conversation actions"><OverflowMenuVertical size={22} /></IconButton>
+        </header>
+        <div className="thread-body">
+          <time className="thread-date">Monday, October 14, 2024</time>
+          {activeConversation.messages.map((message) => (
+            message.direction === 'outbound' ? (
+              <article className="outbound-bubble" key={message.id}>
+                {message.body.split('\n').filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                <time>{message.sentAtLabel} <span>{message.read ? 'Read' : 'Sent'}</span></time>
+              </article>
+            ) : (
+              <article className="inbound-bubble" key={message.id}>
+                {message.labReference && <div className="lab-reference"><strong>{message.labReference.label}</strong><span>{message.labReference.name} <b>{message.labReference.value}</b></span></div>}
+                {message.body.split('\n').filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                {message.attachment && (
+                  <button className="message-attachment" type="button">
+                    <Document size={24} />
+                    <span>{message.attachment.fileName}<small>{message.attachment.size}</small></span>
+                    <Download size={22} />
+                  </button>
+                )}
+                <time>{message.sentAtLabel}</time>
+              </article>
+            )
+          ))}
+        </div>
+        <div className="thread-composer">
+          <div className="composer-tools">
+            <strong>B</strong><em>I</em><span>List</span>
+            <IconButton label="Attach file"><Attachment size={20} /></IconButton>
+          </div>
+          <textarea aria-label="Message reply" placeholder="Type a secure message..." value={reply} onChange={(event) => setReply(event.target.value)} />
+          <div className="composer-footer">
+            {sendError ? <span className="composer-error">{sendError}</span> : <span>Secure message to {activeConversation.participantName}</span>}
+            <button className="primary-action" type="button" disabled={isSending || !reply.trim()} onClick={handleSend}>
+              {isSending ? 'Sending...' : 'Send'} <Send size={20} />
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function AppointmentsPageLive({
+  appointments,
+  appointmentRequests,
+  onBook,
+  onCancel,
+  onReschedule,
+}: {
+  appointments: Appointment[];
+  appointmentRequests: PortalData['appointmentRequests'];
+  onBook: () => void;
+  onCancel: (appointmentId: string) => Promise<void>;
+  onReschedule: (appointmentId: string) => Promise<void>;
+}) {
+  const [tab, setTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
+  const [providerFilter, setProviderFilter] = useState('');
+  const [pendingAppointmentId, setPendingAppointmentId] = useState('');
+  const [appointmentError, setAppointmentError] = useState('');
+  const visibleRows = appointments
+    .filter((appointment) => appointmentTab(appointment) === tab)
+    .filter((appointment) => (appointment.provider || appointment.clinician).toLowerCase().includes(providerFilter.trim().toLowerCase()));
+  const upcomingRows = appointments.filter((appointment) => appointmentTab(appointment) === 'upcoming');
+  const pastRows = appointments.filter((appointment) => appointmentTab(appointment) === 'past');
+  const cancelledRows = appointments.filter((appointment) => appointmentTab(appointment) === 'cancelled');
+  const nextVisit = upcomingRows[0];
+  const lastVisit = pastRows[0];
+
+  const runAppointmentAction = async (appointment: Appointment) => {
+    setPendingAppointmentId(appointment.id);
+    setAppointmentError('');
+    try {
+      if ((appointment.secondaryAction || 'Cancel') === 'Reschedule') {
+        await onReschedule(appointment.id);
+      } else {
+        await onCancel(appointment.id);
+      }
+    } catch (error) {
+      setAppointmentError(error instanceof Error ? error.message : 'Could not update appointment');
+    } finally {
+      setPendingAppointmentId('');
+    }
+  };
+
+  return (
+    <main className="portal-main appointments-page">
+      <section className="appointments-title">
+        <div>
+          <p>Patient Portal <span>/</span> Appointments</p>
+          <h1>Appointments Management <b>{upcomingRows.length} Upcoming</b></h1>
+        </div>
+        <button className="primary-action" type="button" onClick={onBook}><Add size={18} /> Schedule New Appointment</button>
+      </section>
+
+      <section className="appointments-summary">
+        <article><span>Next Visit</span><strong>{nextVisit ? `${nextVisit.date}, ${nextVisit.time || 'Time pending'}` : 'No upcoming visits'}</strong><p>{nextVisit ? `${nextVisit.provider || nextVisit.clinician} - ${nextVisit.department || nextVisit.type}` : 'Schedule a new appointment'}</p></article>
+        <article><span>Pending Requests</span><strong>{appointmentRequests.length} Request{appointmentRequests.length === 1 ? '' : 's'}</strong><p>{appointmentRequests[0] ? `${appointmentRequests[0].reason} - Awaiting approval` : 'No pending requests'}</p></article>
+        <article><span>Last Visit</span><strong>{lastVisit?.date || 'No prior visits'}</strong><p>{lastVisit ? `${lastVisit.service} - ${lastVisit.department || lastVisit.type}` : 'Clinical history unavailable'}</p></article>
+        <article><span>Fast Actions</span><div><button type="button" disabled={!nextVisit || pendingAppointmentId === nextVisit.id} onClick={() => nextVisit && onReschedule(nextVisit.id)}>Reschedule</button><button type="button" disabled={!nextVisit || pendingAppointmentId === nextVisit.id} onClick={() => nextVisit && onCancel(nextVisit.id)}>Cancel</button></div></article>
+      </section>
+
+      <section className="appointments-table-panel">
+        <div className="appointments-table-tools">
+          <nav aria-label="Appointment status">
+            <button className={tab === 'upcoming' ? 'active' : ''} type="button" onClick={() => setTab('upcoming')}>Upcoming</button>
+            <button className={tab === 'past' ? 'active' : ''} type="button" onClick={() => setTab('past')}>Past Visits</button>
+            <button className={tab === 'cancelled' ? 'active' : ''} type="button" onClick={() => setTab('cancelled')}>Cancelled</button>
+          </nav>
+          <label><input aria-label="Filter by provider" placeholder="Filter by provider..." value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)} /><Filter size={18} /></label>
+          <IconButton label="Download appointments"><Download size={21} /></IconButton>
+        </div>
+        <div className="appointments-table-wrap">
+          <table>
+            <thead><tr><th>Date & Time</th><th>Provider</th><th>Department</th><th>Location</th><th>Actions</th></tr></thead>
+            <tbody>
+              {visibleRows.map((appointment) => (
+                <tr key={appointment.id}>
+                  <td><strong>{appointment.date}</strong><span>{appointment.time || 'Time pending'}</span></td>
+                  <td><i>{appointment.initials || appointmentInitials(appointment.provider || appointment.clinician)}</i> {appointment.provider || appointment.clinician}</td>
+                  <td><b>{appointment.department || appointment.type}</b></td>
+                  <td><Location size={17} /> {appointment.location || 'Location pending'}</td>
+                  <td><button type="button">{appointment.action || 'Details'}</button><em /> <button type="button" disabled={pendingAppointmentId === appointment.id} onClick={() => runAppointmentAction(appointment)}>{pendingAppointmentId === appointment.id ? 'Updating...' : appointment.secondaryAction || 'Cancel'}</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!visibleRows.length && <p className="empty-appointments">No {tab} appointments match this view.</p>}
+        </div>
+        <footer><span>{appointmentError || `Showing ${visibleRows.length ? `1 - ${visibleRows.length}` : '0'} of ${tab === 'upcoming' ? upcomingRows.length : tab === 'past' ? pastRows.length : cancelledRows.length} appointments`}</span><span>Items per page: 10 &nbsp; {'<'} &nbsp; {'>'}</span></footer>
+      </section>
+
+      <aside className="reschedule-note">
+        <Information size={28} />
+        <p><strong>Need to reschedule within 24 hours?</strong><span>For urgent changes or appointments within the next 24 hours, please contact the clinic directly at +1 (555) 010-9988.</span></p>
+        <button className="secondary-action" type="button">Contact Support</button>
+      </aside>
+    </main>
+  );
+}
+
+function appointmentTab(appointment: Appointment) {
+  if (appointment.statusGroup === 'Cancelled' || appointment.status === 'Cancelled') return 'cancelled';
+  if (appointment.statusGroup === 'Past' || appointment.status === 'Completed') return 'past';
+  return 'upcoming';
+}
+
+function appointmentInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter((part) => !/^dr\.?$/i.test(part))
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'CT';
+}
+
 function PrescriptionsPage({
+  preferredPharmacy,
+  medicationSummary,
   prescriptions,
   refillRequestIds,
   onRefill,
   onRequestMedication,
 }: {
+  preferredPharmacy: PortalData['preferredPharmacy'];
+  medicationSummary: {
+    activeMedications: number;
+    dueForRefill: number;
+    pendingRequests: number;
+  };
   prescriptions: Prescription[];
   refillRequestIds: string[];
   onRefill: (prescriptionId: string) => Promise<void>;
@@ -632,15 +906,15 @@ function PrescriptionsPage({
       <section className="pharmacy-summary">
         <article>
           <div><span>Preferred Pharmacy</span><button type="button"><Edit size={15} /> Change</button></div>
-          <a href="#prescriptions">CVS Pharmacy #04322</a>
-          <p>123 Health Ave, Medical District<br />Boston, MA 02115</p>
-          <footer><p><span>Phone</span><strong>(617) 555-0199</strong></p><p><span>Hours</span><strong>Open 24 Hours</strong></p></footer>
+          <a href="#prescriptions">{preferredPharmacy.name}</a>
+          <p>{preferredPharmacy.addressLine1}<br />{preferredPharmacy.addressLine2}</p>
+          <footer><p><span>Phone</span><strong>{preferredPharmacy.phone}</strong></p><p><span>Hours</span><strong>{preferredPharmacy.hours}</strong></p></footer>
         </article>
         <aside>
           <h2>Medication Summary</h2>
-          <p><span>Active Medications</span><strong>06</strong></p>
-          <p><span>Due for Refill</span><strong className="text-red">02</strong></p>
-          <p><span>Pending Requests</span><strong>01</strong></p>
+          <p><span>Active Medications</span><strong>{String(medicationSummary.activeMedications).padStart(2, '0')}</strong></p>
+          <p><span>Due for Refill</span><strong className="text-red">{String(medicationSummary.dueForRefill).padStart(2, '0')}</strong></p>
+          <p><span>Pending Requests</span><strong>{String(medicationSummary.pendingRequests).padStart(2, '0')}</strong></p>
         </aside>
       </section>
 
@@ -719,10 +993,10 @@ function BillingPage({ billing, onPay }: { billing: BillingData; onPay: () => Pr
 
       <div className="billing-top-grid">
         <section className="balance-panel">
-          <div><span>Total Outstanding Balance</span>{billing.paymentStatus === 'Due' ? <b>Payment Due: Oct 25</b> : <b className="paid-label">Paid in Full</b>}</div>
+          <div><span>Total Outstanding Balance</span>{billing.paymentStatus === 'Due' ? <b>Payment Due: {billing.dueDate || 'Oct 25'}</b> : <b className="paid-label">Paid in Full</b>}</div>
           <strong>${billing.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
           <div className="balance-breakdown">
-            <p><span>Consultation</span><strong>$450.00</strong></p><p><span>Laboratory</span><strong>$320.50</strong></p><p><span>Radiology</span><strong>$478.00</strong></p><p><span>Pharmacy</span><strong>$0.00</strong></p>
+            <p><span>Consultation</span><strong>${(billing.breakdown?.consultation ?? 450).toFixed(2)}</strong></p><p><span>Laboratory</span><strong>${(billing.breakdown?.laboratory ?? 320.5).toFixed(2)}</strong></p><p><span>Radiology</span><strong>${(billing.breakdown?.radiology ?? 478).toFixed(2)}</strong></p><p><span>Pharmacy</span><strong>${(billing.breakdown?.pharmacy ?? 0).toFixed(2)}</strong></p>
           </div>
           <footer><button className="primary-action" type="button" disabled={billing.outstandingBalance === 0 || paying} onClick={handlePayment}><Money size={19} /> {paying ? 'Processing...' : billing.outstandingBalance === 0 ? 'Balance Paid' : 'Pay Full Balance'}</button><button className="secondary-action" type="button"><Report size={19} /> View Statement</button></footer>
         </section>
@@ -760,7 +1034,19 @@ const emergencyContacts = [
   { name: 'Robert Wilson', relationship: 'Close Friend', primaryPhone: '(555) 123-4567', alternatePhone: '(555) 765-4321', access: 'Emergency Only' },
 ];
 
-function ProfileSettingsPage({ profile, onSave }: { profile: ProfileSettings; onSave: (profile: ProfileSettings) => Promise<void> }) {
+function ProfileSettingsPage({
+  profile,
+  accountStatus,
+  insuranceDetails,
+  emergencyContacts,
+  onSave,
+}: {
+  profile: ProfileSettings;
+  accountStatus: PortalData['accountStatus'];
+  insuranceDetails: PortalData['insuranceDetails'];
+  emergencyContacts: PortalData['emergencyContacts'];
+  onSave: (profile: ProfileSettings) => Promise<void>;
+}) {
   const [form, setForm] = useState(profile);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -814,6 +1100,18 @@ function ProfileSettingsPage({ profile, onSave }: { profile: ProfileSettings; on
   );
 }
 
+function replaceById<T extends { id: string }>(items: T[], nextItem: T) {
+  return items.map((item) => item.id === nextItem.id ? nextItem : item);
+}
+
+function medicationSummaryFromPortal(portal: PortalData) {
+  return {
+    activeMedications: portal.prescriptions.filter((item) => item.status === 'Active' || item.status === 'Refill Due').length,
+    dueForRefill: portal.prescriptions.filter((item) => item.status === 'Refill Due').length,
+    pendingRequests: portal.medicationRequests.filter((item) => item.status === 'Pending').length + portal.refillRequests.filter((item) => item.status === 'Queued').length,
+  };
+}
+
 function PortalApp({ onLogout }: { onLogout: () => void }) {
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -858,7 +1156,13 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
     setIsSubmitting(true);
     setFormError('');
     try {
-      await createVisitRequest(visitForm);
+      const appointmentRequest = await createVisitRequest(visitForm);
+      const appointment = await scheduleAppointment(visitForm);
+      setPortal((current) => current ? {
+        ...current,
+        appointmentRequests: [appointmentRequest, ...current.appointmentRequests],
+        appointments: [appointment, ...current.appointments],
+      } : current);
       setBookingOpen(false);
       setVisitForm(initialVisitForm);
     } catch (error) {
@@ -877,6 +1181,8 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
     setFormError('');
     try {
       await sendMessage(messageForm.subject, messageForm.body);
+      const refreshedPortal = await getPortalData();
+      setPortal(refreshedPortal);
       setMessageOpen(false);
       setMessageForm(initialMessageForm);
     } catch (error) {
@@ -886,9 +1192,36 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
     }
   };
 
-  const handleThreadReply = async (body: string) => {
-    const message = await sendMessage('Lab Results Follow-up', body);
-    setPortal((current) => current ? { ...current, messages: [message, ...current.messages] } : current);
+  const handleThreadReply = async (conversationId: string, body: string) => {
+    const { conversation } = await sendConversationMessage(conversationId, body);
+    setPortal((current) => current ? {
+      ...current,
+      messageConversations: replaceById(current.messageConversations, conversation),
+    } : current);
+  };
+
+  const handleConversationResolve = async (conversationId: string, resolved: boolean) => {
+    const conversation = await resolveConversation(conversationId, resolved);
+    setPortal((current) => current ? {
+      ...current,
+      messageConversations: replaceById(current.messageConversations, conversation),
+    } : current);
+  };
+
+  const handleAppointmentCancel = async (appointmentId: string) => {
+    const appointment = await cancelAppointment(appointmentId);
+    setPortal((current) => current ? {
+      ...current,
+      appointments: replaceById(current.appointments, appointment),
+    } : current);
+  };
+
+  const handleAppointmentReschedule = async (appointmentId: string) => {
+    const appointment = await rescheduleAppointment(appointmentId, 'Nov 30, 2023', '10:00 AM (Thursday)', 'Rescheduled from the patient portal');
+    setPortal((current) => current ? {
+      ...current,
+      appointments: replaceById(current.appointments, appointment),
+    } : current);
   };
 
   const handlePrescriptionRefill = async (prescriptionId: string) => {
@@ -899,8 +1232,8 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleMedicationRequest = async (medicationName: string, notes: string) => {
-    const medicationRequest = await requestNewMedication(medicationName, notes);
-    setPortal((current) => current ? { ...current, medicationRequests: [medicationRequest, ...current.medicationRequests] } : current);
+    await requestNewMedication(medicationName, notes);
+    setPortal(await getPortalData());
   };
 
   const handleBalancePayment = async () => {
@@ -922,11 +1255,11 @@ function PortalApp({ onLogout }: { onLogout: () => void }) {
       <div className="portal-frame">
         <PortalSidebar route={route} onNavigate={navigate} onLogout={onLogout} />
         {route === 'records' && <RecordsPage />}
-        {route === 'appointments' && <AppointmentsPage onBook={() => setBookingOpen(true)} />}
-        {route === 'messages' && <MessagesPage onSend={handleThreadReply} />}
-        {route === 'prescriptions' && <PrescriptionsPage prescriptions={portal.prescriptions} refillRequestIds={portal.refillRequests.map((request) => request.prescriptionId)} onRefill={handlePrescriptionRefill} onRequestMedication={handleMedicationRequest} />}
+        {route === 'appointments' && <AppointmentsPageLive appointments={portal.appointments} appointmentRequests={portal.appointmentRequests} onBook={() => setBookingOpen(true)} onCancel={handleAppointmentCancel} onReschedule={handleAppointmentReschedule} />}
+        {route === 'messages' && <MessagesPageLive conversations={portal.messageConversations} onSend={handleThreadReply} onResolve={handleConversationResolve} onCompose={() => setMessageOpen(true)} />}
+        {route === 'prescriptions' && <PrescriptionsPage preferredPharmacy={portal.preferredPharmacy} medicationSummary={medicationSummaryFromPortal(portal)} prescriptions={portal.prescriptions} refillRequestIds={portal.refillRequests.map((request) => request.prescriptionId)} onRefill={handlePrescriptionRefill} onRequestMedication={handleMedicationRequest} />}
         {route === 'billing' && <BillingPage billing={portal.billing} onPay={handleBalancePayment} />}
-        {route === 'settings' && <ProfileSettingsPage profile={portal.profileSettings} onSave={handleProfileSave} />}
+        {route === 'settings' && <ProfileSettingsPage profile={portal.profileSettings} accountStatus={portal.accountStatus} insuranceDetails={portal.insuranceDetails} emergencyContacts={portal.emergencyContacts} onSave={handleProfileSave} />}
         {route === 'dashboard' && <Dashboard onBook={() => setBookingOpen(true)} onMessage={() => navigate('messages')} onNavigate={navigate} />}
       </div>
 

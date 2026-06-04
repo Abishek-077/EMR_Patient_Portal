@@ -1,8 +1,11 @@
 import type {
+  Appointment,
+  AppointmentList,
   AppointmentRequest,
   BillingData,
   MedicationRequest,
   Message,
+  MessageConversation,
   PortalData,
   ProfileSettings,
   RefillRequest,
@@ -93,10 +96,55 @@ export function createVisitRequest(input: VisitRequestInput) {
   });
 }
 
+export function getAppointments(status: 'upcoming' | 'past' | 'cancelled', provider = '') {
+  const params = new URLSearchParams({ status });
+  if (provider.trim()) params.set('provider', provider.trim());
+  return request<AppointmentList>(`/api/appointments?${params.toString()}`);
+}
+
+export function scheduleAppointment(input: VisitRequestInput) {
+  return request<Appointment>('/api/appointments', {
+    method: 'POST',
+    body: JSON.stringify({
+      service: input.reason,
+      date: input.preferredDate,
+      notes: input.notes,
+    }),
+  });
+}
+
+export function cancelAppointment(appointmentId: string, reason = 'Patient requested cancellation') {
+  return request<Appointment>(`/api/appointments/${appointmentId}/cancel`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function rescheduleAppointment(appointmentId: string, date: string, time: string, notes = '') {
+  return request<Appointment>(`/api/appointments/${appointmentId}/reschedule`, {
+    method: 'PATCH',
+    body: JSON.stringify({ date, time, notes }),
+  });
+}
+
 export function sendMessage(subject: string, body: string) {
   return request<Message>('/api/messages', {
     method: 'POST',
     body: JSON.stringify({ subject, body }),
+  });
+}
+
+export function sendConversationMessage(conversationId: string, body: string) {
+  return request<{ message: unknown; conversation: MessageConversation }>(`/api/messages/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function resolveConversation(conversationId: string, resolved = true) {
+  return request<MessageConversation>(`/api/messages/conversations/${conversationId}/resolve`, {
+    method: 'PATCH',
+    body: JSON.stringify({ resolved }),
   });
 }
 
@@ -107,7 +155,7 @@ export function requestPrescriptionRefill(prescriptionId: string) {
 }
 
 export function requestNewMedication(medicationName: string, notes: string) {
-  return request<MedicationRequest>('/api/medications/requests', {
+  return request<MedicationRequest>('/api/prescriptions/medication-requests', {
     method: 'POST',
     body: JSON.stringify({ medicationName, notes }),
   });

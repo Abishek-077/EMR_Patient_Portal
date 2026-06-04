@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "node --watch server/index.js",
+    "dev:api": "node --watch backend/index.js",
     "dev:web": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "start": "node server/index.js",
+    "test:api": "node backend/scripts/smoke-test.js",
+    "start": "node backend/index.js",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
