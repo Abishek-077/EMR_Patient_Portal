@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypt
 import { conflict, unauthorized } from '../errors.js';
 import { env } from '../config.js';
 import { readDb, updateDb } from '../store.js';
+import { resolveUserAccess } from '../domain/access-control.js';
 
 export async function registerPatient(input) {
   const normalizedEmail = input.email.toLowerCase();
@@ -21,12 +22,18 @@ export async function registerPatient(input) {
     if (userExists) return null;
 
     const credentials = hashPassword(input.password);
+    const shouldBootstrapAdmin = !db.users.some((user) => {
+      const roles = Array.isArray(user.roles) ? user.roles : [user.role];
+      return roles.includes('admin');
+    });
     const user = {
       id: `user-${randomUUID()}`,
       fullName: input.fullName,
       email: normalizedEmail,
       dateOfBirth: input.dateOfBirth,
       patientId: normalizedPatientId,
+      roles: shouldBootstrapAdmin ? ['admin', 'patient'] : ['patient'],
+      status: 'Active',
       passwordHash: credentials.hash,
       passwordSalt: credentials.salt,
       createdAt: new Date().toISOString(),
@@ -35,11 +42,22 @@ export async function registerPatient(input) {
 
     db.users.push(user);
     db.sessions.push(session);
-    return { session, user };
+    db.patient = {
+      ...(db.patient || {}),
+      name: input.fullName,
+      identifier: normalizedPatientId ? `Health ID: ${normalizedPatientId}` : db.patient?.identifier || 'Health ID: Unassigned',
+    };
+    db.profileSettings = {
+      ...(db.profileSettings || {}),
+      fullName: input.fullName,
+      email: normalizedEmail,
+      dateOfBirth: input.dateOfBirth,
+    };
+    return { session, user, accessControl: db.accessControl };
   });
 
   if (!result) throw conflict('An account with this email or patient ID already exists');
-  return toAuthResponse(result.user, result.session);
+  return toAuthResponse(result.user, result.session, result.accessControl);
 }
 
 export async function loginPatient(input) {
@@ -55,14 +73,16 @@ export async function loginPatient(input) {
         String(item.patientId || '').toLowerCase() === identity,
     );
     if (!user || !passwordMatches(input.password, user)) return null;
+    const access = resolveUserAccess(user, db.accessControl);
+    if (access.status === 'Suspended') return null;
 
     const session = createSession(user.id);
     db.sessions.push(session);
-    return { session, user };
+    return { session, user, accessControl: db.accessControl };
   });
 
   if (!result) throw unauthorized('Incorrect username, email, or password');
-  return toAuthResponse(result.user, result.session);
+  return toAuthResponse(result.user, result.session, result.accessControl);
 }
 
 export async function findSessionUser(token) {
@@ -75,10 +95,13 @@ export async function findSessionUser(token) {
 
   const user = db.users.find((item) => item.id === session.userId);
   if (!user) return null;
+  const access = resolveUserAccess(user, db.accessControl);
+  if (access.status === 'Suspended') return null;
 
   return {
     session: toPublicSession(session),
     user,
+    access,
   };
 }
 
@@ -89,19 +112,24 @@ export async function logoutPatient(token) {
   });
 }
 
-export function toPublicUser(user) {
+export function toPublicUser(user, access = resolveUserAccess(user)) {
   return {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
     patientId: user.patientId || '',
+    roles: access.roles,
+    roleLabels: access.roleLabels,
+    permissions: access.permissions,
+    status: access.status,
   };
 }
 
-function toAuthResponse(user, session) {
+function toAuthResponse(user, session, accessControl) {
+  const access = resolveUserAccess(user, accessControl);
   return {
     token: session.token,
-    user: toPublicUser(user),
+    user: toPublicUser(user, access),
   };
 }
 
@@ -141,4 +169,3 @@ function toPublicSession(session) {
     expiresAt: session.expiresAt || null,
   };
 }
-

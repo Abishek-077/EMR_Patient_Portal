@@ -28,5 +28,8 @@
     "concurrently": "^10.0.0",
     "sass": "^1.91.0",
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
   }
 }

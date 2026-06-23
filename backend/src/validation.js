@@ -129,6 +129,21 @@ export function paymentMethodSchema(body) {
   };
 }
 
+export function rolePermissionsSchema(body) {
+  if (!Array.isArray(body.permissions)) throw badRequest('permissions must be an array');
+  return {
+    permissions: body.permissions.map((item) => stringField(item, 'permission')),
+  };
+}
+
+export function userAccessSchema(body) {
+  if (!Array.isArray(body.roles)) throw badRequest('roles must be an array');
+  return {
+    roles: body.roles.map((item) => stringField(item, 'role')),
+    status: stringField(body.status, 'status'),
+  };
+}
+
 export function insuranceDetailsSchema(body) {
   return {
     primaryProvider: stringField(body.primaryProvider, 'primaryProvider'),

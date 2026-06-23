@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { notFound } from '../errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { requestMedication } from '../services/prescriptions.service.js';
 import {
   medicationRequestSchema,
@@ -11,7 +11,7 @@ import { updateDb } from '../store.js';
 
 export const workflowRouter = Router();
 
-workflowRouter.patch('/tasks/:taskId', requireAuth, async (request, response, next) => {
+workflowRouter.patch('/tasks/:taskId', requireAuth, requirePermission('tasks.manage'), async (request, response, next) => {
   try {
     const { completed } = taskStatusSchema(request.body);
     const task = await updateDb((db) => {
@@ -29,7 +29,7 @@ workflowRouter.patch('/tasks/:taskId', requireAuth, async (request, response, ne
   }
 });
 
-workflowRouter.patch('/preferences/share-records', requireAuth, async (request, response, next) => {
+workflowRouter.patch('/preferences/share-records', requireAuth, requirePermission('preferences.manage'), async (request, response, next) => {
   try {
     const { shareRecords } = shareRecordsSchema(request.body);
     const preferences = await updateDb((db) => {
@@ -43,7 +43,7 @@ workflowRouter.patch('/preferences/share-records', requireAuth, async (request, 
   }
 });
 
-workflowRouter.post('/prescriptions/:prescriptionId/refills', requireAuth, async (request, response, next) => {
+workflowRouter.post('/prescriptions/:prescriptionId/refills', requireAuth, requirePermission('prescriptions.refill'), async (request, response, next) => {
   try {
     const refillRequest = await updateDb((db) => {
       db.refillRequests ||= [];
@@ -74,7 +74,7 @@ workflowRouter.post('/prescriptions/:prescriptionId/refills', requireAuth, async
   }
 });
 
-workflowRouter.post('/medications/requests', requireAuth, async (request, response, next) => {
+workflowRouter.post('/medications/requests', requireAuth, requirePermission('prescriptions.request'), async (request, response, next) => {
   try {
     response.status(201).json(await requestMedication(medicationRequestSchema(request.body)));
   } catch (error) {

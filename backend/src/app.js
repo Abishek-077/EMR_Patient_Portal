@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { env } from './config.js';
 import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { appointmentsRouter } from './routes/appointments.routes.js';
+import { adminRouter } from './routes/admin.routes.js';
 import { authRouter } from './routes/auth.routes.js';
 import { billingRouter } from './routes/billing.routes.js';
 import { dashboardRouter } from './routes/dashboard.routes.js';
@@ -34,6 +35,7 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/admin', adminRouter);
   app.use('/api/patient', dashboardRouter);
   app.use('/api/appointments', appointmentsRouter);
   app.use('/api/messages', messagesRouter);
@@ -68,7 +70,7 @@ function localCors(request, response, next) {
     response.setHeader('Access-Control-Allow-Origin', origin);
     response.setHeader('Access-Control-Allow-Credentials', 'true');
     response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   }
 
   if (request.method === 'OPTIONS') {

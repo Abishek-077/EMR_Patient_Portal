@@ -336,6 +336,183 @@ export const seedData = {
     { label: 'Hemoglobin A1c', value: 5.4, unit: '%', range: '4.8 - 5.6 %', tone: 'good' },
     { label: 'Vitamin D, 25-OH', value: 28, unit: 'ng/mL', range: '30 - 100 ng/mL', tone: 'warning' },
   ],
+  clinicalNotes: [
+    {
+      id: 'note-post-op',
+      type: 'Follow-up Visit',
+      date: 'Oct 12, 2023',
+      title: 'Post-operative Management',
+      text: 'Patient reports significant reduction in abdominal pain. Surgical incision site is healing well with no signs of infection or erythema.',
+    },
+    {
+      id: 'note-med-review',
+      type: 'Telehealth',
+      date: 'Sep 28, 2023',
+      title: 'Medication Review',
+      text: 'Discussed adjustment to Metformin dosage. Patient experiencing mild GI distress. Suggested evening dosing with food and continued monitoring.',
+    },
+  ],
+  immunizations: [
+    {
+      id: 'imm-influenza',
+      title: 'Influenza (Seasonal)',
+      last: 'Last: Oct 02, 2023',
+      doses: '2 doses',
+      status: 'Up to date',
+      tone: 'green',
+    },
+    {
+      id: 'imm-covid-booster',
+      title: 'COVID-19 Booster',
+      last: 'Last: Jan 15, 2023',
+      doses: '3 doses',
+      status: 'Due Jan 2024',
+      tone: 'yellow',
+    },
+    {
+      id: 'imm-tdap',
+      title: 'Tetanus (Tdap)',
+      last: 'Last: Aug 12, 2019',
+      doses: '1 dose',
+      status: 'Up to date',
+      tone: 'green',
+    },
+  ],
+  immunizationRecords: {
+    alerts: [
+      { id: 'imm-alert-flu', tone: 'warning', title: 'Overdue: Influenza (Seasonal)', detail: 'Scheduled for Oct 15, 2023' },
+      { id: 'imm-alert-tdap', tone: 'info', title: 'Upcoming: Tdap Booster', detail: 'Due in 45 days (Dec 20, 2023)' },
+      { id: 'imm-alert-travel', tone: 'neutral', title: 'Travel Vaccines', detail: 'Consultation recommended for upcoming trip.' },
+    ],
+    completed: [
+      { id: 'imm-covid-3', vaccine: 'COVID-19 (Pfizer-BioNTech)', date: 'Aug 12, 2023', dose: 'Dose 3 (Booster)', provider: 'Dr. Sarah Jenkins', route: 'Left Deltoid / IM' },
+      { id: 'imm-hepb-3', vaccine: 'Hepatitis B (Recombinant)', date: 'Jan 15, 2023', dose: '3 of 3', provider: 'Clinic Nurse A. Chen', route: 'Right Deltoid / IM' },
+      { id: 'imm-hepb-2', vaccine: 'Hepatitis B (Recombinant)', date: 'Dec 10, 2022', dose: '2 of 3', provider: 'Clinic Nurse A. Chen', route: 'Left Deltoid / IM' },
+      { id: 'imm-hepb-1', vaccine: 'Hepatitis B (Recombinant)', date: 'Nov 05, 2022', dose: '1 of 3', provider: 'Dr. Marcus Thorne', route: 'Right Deltoid / IM' },
+      { id: 'imm-mmr', vaccine: 'MMR (Measles, Mumps, Rubella)', date: 'Jun 22, 2018', dose: 'Booster', provider: 'Central Health Clinic', route: 'Subcutaneous' },
+      { id: 'imm-varicella', vaccine: 'Varicella', date: 'Apr 14, 2018', dose: '1 of 1', provider: 'Central Health Clinic', route: 'Subcutaneous' },
+      { id: 'imm-flu-2022', vaccine: 'Influenza (Seasonal)', date: 'Oct 20, 2022', dose: 'Annual', provider: 'Walgreens Pharmacy', route: 'Left Deltoid / IM' },
+      { id: 'imm-td-2014', vaccine: 'Tetanus/Diphtheria (Td)', date: 'Sep 10, 2014', dose: 'Booster', provider: 'City Hospital', route: 'Right Deltoid / IM' },
+    ],
+    compliance: {
+      percent: 85,
+      completed: 11,
+      recommended: 13,
+      detail: 'You are up to date with 11 out of 13 recommended adult immunizations.',
+    },
+  },
+  educationalResources: {
+    featured: {
+      id: 'resource-hypertension-guide',
+      category: 'Condition Focus',
+      title: 'Managing Hypertension: A Comprehensive Daily Guide',
+      detail: 'Based on your latest blood pressure readings (145/92 mmHg), this guide offers actionable steps for diet, exercise, and medication adherence.',
+      meta: '12 min read',
+      updated: 'Updated 2 days ago',
+      actionLabel: 'Read Guide',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBCMfqWfG-QA2INw_Eo4vXKMi-vPlVtKP7QtEoli50YCFKGOgszyurpo1W7Z5EB5cJO2zJhIZRZPsbP7Umh6ewEbjGEX2zgdAdmKkXU0EvaYkfRvxsjW4bx1Fz6PO5quvKAB9psp5LoprVaaFmoKMnHG02rIhuLqDD_pXVFEMkQAlIxJqjLRYx2P7hys7X9-iiopk0GZ26WudjQuuCHOWGK2C1_1QUTqX5JwKy_qyKX5gx2gSEZbASSglvQz8ambyGbbmkqu5Wu12SG',
+    },
+    video: {
+      id: 'resource-lipid-video',
+      title: 'Understanding Your Lipid Panel Results',
+      detail: 'A visual walkthrough of what HDL, LDL, and Triglycerides mean for your heart health.',
+      duration: '04:15',
+      category: 'Video Tutorial',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBPptj0e2w8fwLXdAIJf583WykXafGGKMaOHkKVgm84ceqn7Kn6Bm1vrW7M58d8kZHjDxSQosvR4lnPblM-pEB7p7748U33wnUW-J_a2SwCa7KSt3y9PYn-WiXZoMmmjamysebYPIBtM66ud0eAGFpgijGwU-yMpdFes-BsiTaFlS3iwGb8Hd6qwhuqaRdx5IXLbWzms7RkPuS9Ydc7M7yVgbZLOFEDUYcR9IKZPjxZU0pyWNxnQ5neN1JONsFGXhsRcW9bEn0T5EqD',
+    },
+    groups: [
+      {
+        id: 'condition-guides',
+        title: 'Condition Guides',
+        items: [
+          { title: 'Type 2 Diabetes Basics', detail: 'A starter kit for newly diagnosed patients.', action: 'Read Article' },
+          { title: 'Managing Chronic Pain', detail: 'Evidence-based non-pharmaceutical options.', action: 'Read Article' },
+          { title: 'Kidney Health 101', detail: 'Understanding GFR and hydration requirements.', action: 'Read Article' },
+        ],
+      },
+      {
+        id: 'medication-info',
+        title: 'Medication Info',
+        items: [
+          { title: 'Statins: Benefits vs. Risks', detail: 'Addressing common concerns about muscle pain.', action: 'View Guide' },
+          { title: 'Blood Thinners Safely', detail: 'Dietary restrictions and warning signs to watch.', action: 'View Guide' },
+          { title: 'Antibiotic Stewardship', detail: 'Why completing the full course is critical.', action: 'View Guide' },
+        ],
+      },
+      {
+        id: 'wellness-tips',
+        title: 'Wellness Tips',
+        items: [
+          { title: 'Anti-Inflammatory Diet', detail: 'Top 10 foods to help reduce swelling naturally.', action: 'Learn More' },
+          { title: 'Sleep Hygiene Protocol', detail: 'Improving rest for better immune function.', action: 'Learn More' },
+          { title: 'Stress Management 101', detail: 'Mindfulness techniques for clinical anxiety.', action: 'Learn More' },
+        ],
+      },
+    ],
+    library: [
+      { id: 'lib-cbc', title: 'Understanding Lab Results: CBC Panel', detail: 'A detailed guide on red and white blood cell counts.', category: 'Diagnostics', updated: 'Oct 12, 2023', format: 'Article' },
+      { id: 'lib-cardio', title: 'Low-Impact Cardio for Joint Health', detail: '15-minute home workout designed for arthritis patients.', category: 'Physical Therapy', updated: 'Nov 02, 2023', format: 'Video' },
+      { id: 'lib-wound', title: 'Post-Operative Wound Care', detail: 'Essential steps for home care and identifying infection.', category: 'Surgery Recovery', updated: 'Sep 28, 2023', format: 'PDF' },
+    ],
+  },
+  referrals: {
+    summary: { active: 12, pending: 3, completedYear: 8 },
+    rows: [
+      { id: 'ref-9923', issuedDate: 'Oct 24, 2023', provider: 'Dr. Sarah Jenkins', specialty: 'Cardiology', reason: 'Echocardiogram follow-up post hypertension review', status: 'Pending', actions: ['Details', 'Contact'] },
+      { id: 'ref-8841', issuedDate: 'Oct 12, 2023', provider: 'Dr. Aris Thorne', specialty: 'Dermatology', reason: 'Skin biopsy (Left forearm lesion)', status: 'Scheduled', actions: ['View Calendar'], appointment: 'Appt: Nov 05' },
+      { id: 'ref-7220', issuedDate: 'Sep 28, 2023', provider: 'City General Imaging', specialty: 'Radiology', reason: 'Standard MRI - Cranial without contrast', status: 'Completed', actions: ['View Results'] },
+      { id: 'ref-6119', issuedDate: 'Sep 15, 2023', provider: 'Dr. Lydia Vance', specialty: 'Endocrinology', reason: 'T1D Management review', status: 'Pending', actions: ['Resend Request'] },
+    ],
+    focus: {
+      caseId: 'REF-9923',
+      title: 'Referral Detail Focus',
+      note: '"Patient presents with chronic hypertension. Referral to Cardiology is imperative for diagnostic imaging and baseline assessment of cardiac function. Priority: Routine."',
+      attachment: 'Initial_Lab_Results.pdf',
+      lastUpdate: 'Yesterday, 04:30 PM',
+      clinic: 'Metro Health Cardiology',
+      address: '122 Medical Plaza, Ste 400',
+      phone: '(555) 010-8892',
+      email: 'referrals@metrocardio.org',
+    },
+  },
+  familyAccess: {
+    proxies: [
+      { id: 'proxy-sarah', name: 'Sarah Johnson', relationship: 'Spouse', permissions: 'Full Access', status: 'Active' },
+      { id: 'proxy-michael', name: 'Michael Johnson', relationship: 'Adult Child', permissions: 'View Only', status: 'Active' },
+      { id: 'proxy-david', name: 'David Reed', relationship: 'Legal Proxy', permissions: 'Awaiting Acceptance', status: 'Invitation Pending' },
+    ],
+    accounts: [
+      { id: 'acct-emma', name: 'Emma Johnson', detail: 'Minor Child - Last Visit: Oct 12', access: 'Full Access' },
+      { id: 'acct-robert', name: 'Robert Smith', detail: 'Elderly Parent - Last Visit: Nov 05', access: 'View Only' },
+    ],
+    activity: [
+      { id: 'access-sarah', title: 'Sarah Johnson logged in', detail: 'Today, 09:12 AM - Viewed Lab Results', tone: 'success' },
+      { id: 'access-rx', title: 'New prescription view', detail: "Oct 24, 02:45 PM - Emma Johnson's Profile", tone: 'info' },
+      { id: 'access-revoked', title: 'Access updated', detail: "Oct 20, 11:00 AM - Revoked 'Billing' for Michael J.", tone: 'neutral' },
+    ],
+  },
+  healthTrends: {
+    summary: {
+      withinRange: 2,
+      attentionRequired: 1,
+      updates: ['Vitals updated today', 'Labs 2 days ago', 'Rx adherence: High', 'HR Variability: Normal'],
+    },
+    metrics: [
+      { id: 'trend-bp', label: 'Blood Pressure', status: 'Elevated', latest: '138/88', unit: 'mmHg', averageLabel: 'Avg', average: '132/84', points: [74, 62, 69, 58, 52] },
+      { id: 'trend-hr', label: 'Heart Rate', status: 'Stable', latest: '72', unit: 'BPM', averageLabel: 'Resting Avg', average: '70', points: [60, 64, 61, 63, 62] },
+      { id: 'trend-weight', label: 'Weight', status: 'Decreasing', latest: '84.2', unit: 'kg', averageLabel: 'Baseline', average: '91.0', points: [40, 46, 53, 61, 70] },
+    ],
+    labComparison: [
+      { parameter: 'HbA1c (%)', baseline: '6.8', current: '6.1', change: '-0.7 down', status: 'Normal' },
+      { parameter: 'Creatinine (mg/dL)', baseline: '1.1', current: '1.2', change: '+0.1 up', status: 'Normal' },
+      { parameter: 'LDL Cholesterol (mg/dL)', baseline: '142', current: '128', change: '-14 down', status: 'Elevated' },
+      { parameter: 'ALT (U/L)', baseline: '22', current: '46', change: '+24 up', status: 'Attention' },
+    ],
+    goals: [
+      { id: 'goal-weight', label: 'Weight Loss Target (82kg)', progress: 75 },
+      { id: 'goal-ldl', label: 'LDL Target (<100mg/dL)', progress: 40 },
+    ],
+  },
   messages: [
     {
       id: 'msg-1',

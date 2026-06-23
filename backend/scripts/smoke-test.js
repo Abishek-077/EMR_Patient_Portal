@@ -37,6 +37,21 @@ try {
   const me = await json('/api/auth/me', { method: 'GET', token });
   assert(me.status === 200, 'me should return 200');
   assert(me.body.user.email === 'smoke.patient@example.com', 'me should return public user');
+  assert(me.body.user.roles.includes('admin'), 'first registered user should bootstrap as admin');
+
+  const limitedSignup = await json('/api/auth/signup', {
+    method: 'POST',
+    body: {
+      fullName: 'Limited Portal Patient',
+      email: 'limited.patient@example.com',
+      dateOfBirth: '1992-03-04',
+      patientId: 'SMOKE-200-345',
+      password: 'Limited@Test1',
+    },
+  });
+  assert(limitedSignup.status === 201, 'second signup should return 201');
+  assert(limitedSignup.body.user.roles.includes('patient'), 'second signup should be a patient');
+  assert(!limitedSignup.body.user.roles.includes('admin'), 'second signup should not be an admin');
 
   const login = await json('/api/auth/login', {
     method: 'POST',
@@ -46,6 +61,80 @@ try {
     },
   });
   assert(login.status === 200, 'login should return 200');
+
+  const accessOverview = await json('/api/admin/access-control', { method: 'GET', token: login.body.token });
+  assert(accessOverview.status === 200, 'admin access overview should return 200');
+  assert(accessOverview.body.permissionCatalog.length >= 1, 'access overview should include permissions');
+  assert(accessOverview.body.roles.some((role) => role.id === 'doctor'), 'access overview should include doctor role');
+
+  const limitedAdminDenied = await json('/api/admin/access-control', { method: 'GET', token: limitedSignup.body.token });
+  assert(limitedAdminDenied.status === 403, 'patient should not access admin access control');
+
+  const patientRole = accessOverview.body.roles.find((role) => role.id === 'patient');
+  assert(patientRole, 'patient role should exist');
+  const patientWithoutBilling = patientRole.permissions.filter((permission) => !permission.startsWith('billing.'));
+  const roleUpdate = await json('/api/admin/access-control/roles/patient', {
+    method: 'PATCH',
+    token: login.body.token,
+    body: { permissions: patientWithoutBilling },
+  });
+  assert(roleUpdate.status === 200, 'admin should update patient role permissions');
+  assert(
+    !roleUpdate.body.roles.find((role) => role.id === 'patient').permissions.includes('billing.view'),
+    'patient role should lose billing view permission',
+  );
+
+  const limitedBilling = await json('/api/billing', { method: 'GET', token: limitedSignup.body.token });
+  assert(limitedBilling.status === 403, 'patient without billing.view should be blocked from billing API');
+
+  const limitedPortal = await json('/api/portal', { method: 'GET', token: limitedSignup.body.token });
+  assert(limitedPortal.status === 200, 'limited patient portal should still load');
+  assert(!('users' in limitedPortal.body), 'limited portal response must not expose users');
+  assert(!('sessions' in limitedPortal.body), 'limited portal response must not expose sessions');
+  assert(!('accessControl' in limitedPortal.body), 'limited portal response must not expose access control internals');
+  assert(limitedPortal.body.billing.invoices.length === 0, 'limited portal should redact billing invoices');
+
+  const limitedUser = roleUpdate.body.users.find((user) => user.email === 'limited.patient@example.com');
+  assert(limitedUser, 'limited user should appear in admin overview');
+  const userAccessUpdate = await json(`/api/admin/users/${limitedUser.id}/access`, {
+    method: 'PATCH',
+    token: login.body.token,
+    body: { roles: ['doctor'], status: 'Active' },
+  });
+  assert(userAccessUpdate.status === 200, 'admin should update user access');
+  assert(
+    userAccessUpdate.body.users.find((user) => user.id === limitedUser.id).roles.includes('doctor'),
+    'user access update should assign doctor role',
+  );
+
+  const limitedMe = await json('/api/auth/me', { method: 'GET', token: limitedSignup.body.token });
+  assert(limitedMe.status === 200, 'updated user session should remain valid');
+  assert(limitedMe.body.user.roles.includes('doctor'), 'updated user session should resolve new role');
+
+  const suspendedUser = await json(`/api/admin/users/${limitedUser.id}/access`, {
+    method: 'PATCH',
+    token: login.body.token,
+    body: { roles: ['doctor'], status: 'Suspended' },
+  });
+  assert(suspendedUser.status === 200, 'admin should suspend a user');
+
+  const suspendedLogin = await json('/api/auth/login', {
+    method: 'POST',
+    body: {
+      usernameOrEmail: 'limited.patient@example.com',
+      password: 'Limited@Test1',
+    },
+  });
+  assert(suspendedLogin.status === 401, 'suspended user should not be able to log in');
+
+  const adminUser = accessOverview.body.users.find((user) => user.email === 'smoke.patient@example.com');
+  assert(adminUser, 'admin user should appear in access overview');
+  const lastAdminRemoval = await json(`/api/admin/users/${adminUser.id}/access`, {
+    method: 'PATCH',
+    token: login.body.token,
+    body: { roles: ['patient'], status: 'Suspended' },
+  });
+  assert(lastAdminRemoval.status === 403, 'API should prevent removing the last active access admin');
 
   const dashboard = await json('/api/patient/dashboard', { method: 'GET', token: login.body.token });
   assert(dashboard.status === 200, 'dashboard should return 200');
@@ -171,6 +260,27 @@ try {
   });
   assert(paymentMethod.status === 201, 'payment method create should return 201');
   assert(paymentMethod.body.isDefault === true, 'new payment method should be default');
+
+  const invoiceToPay = billing.body.invoices.find((invoice) => invoice.status === 'Overdue' || invoice.status === 'Pending');
+  assert(invoiceToPay, 'billing should include an invoice that can be paid');
+  const invoicePayment = await json('/api/billing/payments', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      invoiceId: invoiceToPay.id,
+      amount: invoiceToPay.amount,
+      paymentMethodId: paymentMethod.body.id,
+    },
+  });
+  assert(invoicePayment.status === 201, 'invoice payment should return 201');
+  assert(
+    invoicePayment.body.outstandingBalance === Number((billing.body.outstandingBalance - invoiceToPay.amount).toFixed(2)),
+    'invoice payment should reduce outstanding balance by invoice amount',
+  );
+  assert(
+    invoicePayment.body.invoices.find((invoice) => invoice.id === invoiceToPay.id).status === 'Paid',
+    'invoice payment should mark that invoice paid',
+  );
 
   const payment = await json('/api/billing/payments', {
     method: 'POST',

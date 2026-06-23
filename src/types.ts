@@ -87,7 +87,18 @@ export type BillingInvoice = {
   description: string;
   amount: number;
   status: 'Overdue' | 'Paid' | 'Pending';
+  paidAt?: string;
 };
+
+export type BillingPaymentMethod = {
+  id: string;
+  type: 'Card' | 'Bank';
+  label: string;
+  detail: string;
+  isDefault?: boolean;
+};
+
+export type BillingPaymentMethodInput = Omit<BillingPaymentMethod, 'id'>;
 
 export type BillingData = {
   outstandingBalance: number;
@@ -99,13 +110,7 @@ export type BillingData = {
     radiology: number;
     pharmacy: number;
   };
-  paymentMethods: Array<{
-    id: string;
-    type: string;
-    label: string;
-    detail: string;
-    isDefault?: boolean;
-  }>;
+  paymentMethods: BillingPaymentMethod[];
   invoices: BillingInvoice[];
   payments: Array<{
     id: string;
@@ -153,6 +158,264 @@ export type LabResult = {
   unit: string;
   range: string;
   tone: 'good' | 'warning';
+};
+
+export type DashboardVital = {
+  id: string;
+  label: string;
+  value: string;
+  unit: string;
+  status: string;
+  progress: number | null;
+};
+
+export type DashboardActivity = {
+  id: string;
+  title: string;
+  detail: string;
+  occurredAt: string;
+  tone: 'info' | 'success' | 'message';
+};
+
+export type DashboardData = {
+  patient: Patient & {
+    email?: string;
+  };
+  summary: {
+    welcomeName: string;
+    healthId: string;
+    overviewDate: string;
+    appointmentsUpcoming: number;
+    unreadMessages: number;
+    refillsDue: number;
+    outstandingBalance: number;
+    careTeam: string;
+    primaryCondition: string;
+  };
+  quickActions: Array<{
+    id: string;
+    label: string;
+    detail: string;
+    target: 'messages' | 'prescriptions' | 'records';
+    priority: 'primary' | 'secondary' | 'neutral';
+  }>;
+  latestLabResults: LabResult[];
+  upcomingAppointments: Appointment[];
+  recentActivity: DashboardActivity[];
+  vitals: DashboardVital[];
+  security: {
+    encrypted: boolean;
+    hipaaMode: boolean;
+    lastSync: string;
+  };
+};
+
+export type ClinicalNote = {
+  id: string;
+  type: string;
+  date: string;
+  title: string;
+  text: string;
+};
+
+export type Immunization = {
+  id: string;
+  title: string;
+  last: string;
+  doses: string;
+  status: string;
+  tone: 'green' | 'yellow';
+};
+
+export type ImmunizationRecords = {
+  alerts: Array<{
+    id: string;
+    tone: 'warning' | 'info' | 'neutral';
+    title: string;
+    detail: string;
+  }>;
+  completed: Array<{
+    id: string;
+    vaccine: string;
+    date: string;
+    dose: string;
+    provider: string;
+    route: string;
+  }>;
+  compliance: {
+    percent: number;
+    completed: number;
+    recommended: number;
+    detail: string;
+  };
+};
+
+export type EducationalResources = {
+  featured: {
+    id: string;
+    category: string;
+    title: string;
+    detail: string;
+    meta: string;
+    updated: string;
+    actionLabel: string;
+    imageUrl?: string;
+  };
+  video: {
+    id: string;
+    title: string;
+    detail: string;
+    duration: string;
+    category: string;
+    imageUrl?: string;
+  };
+  groups: Array<{
+    id: string;
+    title: string;
+    items: Array<{
+      title: string;
+      detail: string;
+      action: string;
+    }>;
+  }>;
+  library: Array<{
+    id: string;
+    title: string;
+    detail: string;
+    category: string;
+    updated: string;
+    format: string;
+  }>;
+};
+
+export type ReferralsData = {
+  summary: {
+    active: number;
+    pending: number;
+    completedYear: number;
+  };
+  rows: Array<{
+    id: string;
+    issuedDate: string;
+    provider: string;
+    specialty: string;
+    reason: string;
+    status: 'Pending' | 'Scheduled' | 'Completed';
+    actions: string[];
+    appointment?: string;
+  }>;
+  focus: {
+    caseId: string;
+    title: string;
+    note: string;
+    attachment: string;
+    lastUpdate: string;
+    clinic: string;
+    address: string;
+    phone: string;
+    email: string;
+  };
+};
+
+export type FamilyAccessData = {
+  proxies: Array<{
+    id: string;
+    name: string;
+    relationship: string;
+    permissions: string;
+    status: string;
+  }>;
+  accounts: Array<{
+    id: string;
+    name: string;
+    detail: string;
+    access: string;
+  }>;
+  activity: Array<{
+    id: string;
+    title: string;
+    detail: string;
+    tone: 'success' | 'info' | 'neutral';
+  }>;
+};
+
+export type HealthTrendsData = {
+  summary: {
+    withinRange: number;
+    attentionRequired: number;
+    updates: string[];
+  };
+  metrics: Array<{
+    id: string;
+    label: string;
+    status: string;
+    latest: string;
+    unit: string;
+    averageLabel: string;
+    average: string;
+    points: number[];
+  }>;
+  labComparison: Array<{
+    parameter: string;
+    baseline: string;
+    current: string;
+    change: string;
+    status: 'Normal' | 'Elevated' | 'Attention';
+  }>;
+  goals: Array<{
+    id: string;
+    label: string;
+    progress: number;
+  }>;
+};
+
+export type AccessStatus = 'Active' | 'Suspended';
+
+export type AccessUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  patientId: string;
+  roles: string[];
+  roleLabels: string[];
+  permissions: string[];
+  status: AccessStatus;
+  createdAt?: string | null;
+  accessUpdatedAt?: string | null;
+};
+
+export type PermissionCatalogItem = {
+  id: string;
+  label: string;
+  description: string;
+  group: string;
+};
+
+export type AccessRole = {
+  id: string;
+  label: string;
+  description: string;
+  permissions: string[];
+  system: boolean;
+  userCount?: number;
+};
+
+export type AccessAuditEvent = {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  summary: string;
+  actorUserId: string;
+  actorName: string;
+  createdAt: string;
+};
+
+export type AccessControlOverview = {
+  permissionCatalog: PermissionCatalogItem[];
+  roles: AccessRole[];
+  users: AccessUser[];
+  auditLog: AccessAuditEvent[];
 };
 
 export type Message = {
@@ -258,6 +521,13 @@ export type PortalDocument = {
 };
 
 export type PortalData = {
+  currentUser: AccessUser;
+  access: {
+    roles: string[];
+    roleLabels: string[];
+    permissions: string[];
+    status: AccessStatus;
+  };
   patient: Patient;
   preferences: {
     shareRecords: boolean;
@@ -276,10 +546,17 @@ export type PortalData = {
   insuranceDetails: InsuranceDetails;
   emergencyContacts: EmergencyContact[];
   labResults: LabResult[];
+  clinicalNotes: ClinicalNote[];
+  immunizations: Immunization[];
+  immunizationRecords: ImmunizationRecords;
+  educationalResources: EducationalResources;
+  referrals: ReferralsData;
+  familyAccess: FamilyAccessData;
+  healthTrends: HealthTrendsData;
   messages: Message[];
   messageConversations: MessageConversation[];
   documents: PortalDocument[];
-  dashboard?: unknown;
+  dashboard: DashboardData;
 };
 
 export type VisitRequestInput = {

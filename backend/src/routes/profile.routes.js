@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   addEmergencyContact,
   deleteEmergencyContact,
@@ -12,7 +12,7 @@ import { emergencyContactSchema, insuranceDetailsSchema, profileSchema } from '.
 
 export const profileRouter = Router();
 
-profileRouter.get('/', requireAuth, async (_request, response, next) => {
+profileRouter.get('/', requireAuth, requirePermission('profile.view'), async (_request, response, next) => {
   try {
     response.json(await getProfileOverview());
   } catch (error) {
@@ -20,7 +20,7 @@ profileRouter.get('/', requireAuth, async (_request, response, next) => {
   }
 });
 
-profileRouter.patch('/', requireAuth, async (request, response, next) => {
+profileRouter.patch('/', requireAuth, requirePermission('profile.update'), async (request, response, next) => {
   try {
     response.json(await updateProfileSettings(request.auth.user.id, profileSchema(request.body)));
   } catch (error) {
@@ -28,7 +28,7 @@ profileRouter.patch('/', requireAuth, async (request, response, next) => {
   }
 });
 
-profileRouter.patch('/insurance', requireAuth, async (request, response, next) => {
+profileRouter.patch('/insurance', requireAuth, requirePermission('profile.insurance.manage'), async (request, response, next) => {
   try {
     response.json(await updateInsuranceDetails(insuranceDetailsSchema(request.body)));
   } catch (error) {
@@ -36,7 +36,7 @@ profileRouter.patch('/insurance', requireAuth, async (request, response, next) =
   }
 });
 
-profileRouter.post('/emergency-contacts', requireAuth, async (request, response, next) => {
+profileRouter.post('/emergency-contacts', requireAuth, requirePermission('profile.emergencyContacts.manage'), async (request, response, next) => {
   try {
     response.status(201).json(await addEmergencyContact(emergencyContactSchema(request.body)));
   } catch (error) {
@@ -44,7 +44,7 @@ profileRouter.post('/emergency-contacts', requireAuth, async (request, response,
   }
 });
 
-profileRouter.patch('/emergency-contacts/:contactId', requireAuth, async (request, response, next) => {
+profileRouter.patch('/emergency-contacts/:contactId', requireAuth, requirePermission('profile.emergencyContacts.manage'), async (request, response, next) => {
   try {
     response.json(await updateEmergencyContact(request.params.contactId, emergencyContactSchema(request.body)));
   } catch (error) {
@@ -52,11 +52,10 @@ profileRouter.patch('/emergency-contacts/:contactId', requireAuth, async (reques
   }
 });
 
-profileRouter.delete('/emergency-contacts/:contactId', requireAuth, async (request, response, next) => {
+profileRouter.delete('/emergency-contacts/:contactId', requireAuth, requirePermission('profile.emergencyContacts.manage'), async (request, response, next) => {
   try {
     response.json(await deleteEmergencyContact(request.params.contactId));
   } catch (error) {
     next(error);
   }
 });
-

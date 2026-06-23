@@ -15,6 +15,10 @@ export async function getProfileOverview() {
 export async function updateProfileSettings(userId, input) {
   return updateDb((db) => {
     db.profileSettings = input;
+    db.patient = {
+      ...(db.patient || {}),
+      name: input.fullName,
+    };
     const user = db.users.find((item) => item.id === userId);
     if (user) {
       user.fullName = input.fullName;
@@ -82,4 +86,3 @@ function calculateProfileCompletion(profile) {
   const completed = fields.filter((field) => String(profile[field] || '').trim()).length;
   return Math.round((completed / fields.length) * 100);
 }
-

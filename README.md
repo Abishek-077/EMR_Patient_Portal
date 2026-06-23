@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-On this Windows machine, PowerShell may block `npm.ps1`; use:
+If PowerShell blocks `npm.ps1` on Windows, use:
 
 ```bash
 cmd /c npm run dev
@@ -20,8 +20,12 @@ The local app runs at `http://127.0.0.1:5173` and proxies API calls to `http://1
 Run only the backend API:
 
 ```bash
-cmd /c npm run dev:api
+npm run dev:api
 ```
+
+The implemented portal screens are login, sign up, dashboard, health records, appointments, secure messages, prescriptions, billing/payments, profile settings, referrals, health trends, immunizations, educational resources, and family/proxy access.
+
+Admin users can open **Access Control** from the sidebar to configure role-based feature access. The app ships with administrator, doctor, nurse/care coordinator, front desk/scheduler, billing specialist, patient/normal user, and family proxy/caregiver roles. The first registered account is bootstrapped as an administrator so the portal can be configured; later signups are patient users until an admin changes their access.
 
 ## API
 
@@ -30,6 +34,9 @@ cmd /c npm run dev:api
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
+- `GET /api/admin/access-control`
+- `PATCH /api/admin/access-control/roles/:roleId`
+- `PATCH /api/admin/users/:userId/access`
 - `GET /api/patient/dashboard`
 - `GET /api/portal`
 - `GET /api/messages/conversations`
@@ -60,14 +67,14 @@ cmd /c npm run dev:api
 - `POST /api/billing/payments`
 - `PATCH /api/profile`
 
-Data is stored in `data/db.json`. Passwords are stored as salted scrypt hashes and portal routes require a valid session token.
+Data is stored in `data/db.json`. Passwords are stored as salted scrypt hashes and portal routes require a valid session token. Feature access is enforced by backend permissions, and `/api/portal` redacts sections the current user is not allowed to view.
 
 Backend details and request/response examples live in `backend/README.md`.
 
 Run the backend smoke test:
 
 ```bash
-cmd /c npm run test:api
+npm run test:api
 ```
 
 ## Build

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   createConversationMessage,
   getConversation,
@@ -15,7 +15,7 @@ import {
 
 export const messagesRouter = Router();
 
-messagesRouter.get('/conversations', requireAuth, async (request, response, next) => {
+messagesRouter.get('/conversations', requireAuth, requirePermission('messages.view'), async (request, response, next) => {
   try {
     response.json(await listConversations({ query: String(request.query.query || '') }));
   } catch (error) {
@@ -23,7 +23,7 @@ messagesRouter.get('/conversations', requireAuth, async (request, response, next
   }
 });
 
-messagesRouter.get('/conversations/:conversationId', requireAuth, async (request, response, next) => {
+messagesRouter.get('/conversations/:conversationId', requireAuth, requirePermission('messages.view'), async (request, response, next) => {
   try {
     response.json(await getConversation(request.params.conversationId));
   } catch (error) {
@@ -31,7 +31,7 @@ messagesRouter.get('/conversations/:conversationId', requireAuth, async (request
   }
 });
 
-messagesRouter.post('/conversations/:conversationId/messages', requireAuth, async (request, response, next) => {
+messagesRouter.post('/conversations/:conversationId/messages', requireAuth, requirePermission('messages.send'), async (request, response, next) => {
   try {
     response.status(201).json(await sendConversationMessage(
       request.params.conversationId,
@@ -42,7 +42,7 @@ messagesRouter.post('/conversations/:conversationId/messages', requireAuth, asyn
   }
 });
 
-messagesRouter.patch('/conversations/:conversationId/resolve', requireAuth, async (request, response, next) => {
+messagesRouter.patch('/conversations/:conversationId/resolve', requireAuth, requirePermission('messages.resolve'), async (request, response, next) => {
   try {
     response.json(await setConversationResolved(
       request.params.conversationId,
@@ -53,11 +53,10 @@ messagesRouter.patch('/conversations/:conversationId/resolve', requireAuth, asyn
   }
 });
 
-messagesRouter.post('/', requireAuth, async (request, response, next) => {
+messagesRouter.post('/', requireAuth, requirePermission('messages.send'), async (request, response, next) => {
   try {
     response.status(201).json(await createConversationMessage(sendMessageSchema(request.body)));
   } catch (error) {
     next(error);
   }
 });
-

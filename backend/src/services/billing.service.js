@@ -27,14 +27,22 @@ export async function createPayment(input) {
   const billing = await updateDb((db) => {
     db.billing.payments ||= [];
     const outstandingBalance = Number(db.billing.outstandingBalance || 0);
-    const amount = input.amount ?? outstandingBalance;
+    const invoice = input.invoiceId
+      ? db.billing.invoices.find((item) => item.id === input.invoiceId)
+      : null;
+    if (input.invoiceId && !invoice) throw notFound('Invoice not found');
+    if (invoice?.status === 'Paid') throw badRequest('Invoice is already paid');
+
+    const invoiceAmount = invoice ? Number(invoice.amount || 0) : null;
+    const amount = input.amount ?? invoiceAmount ?? outstandingBalance;
     if (amount <= 0) return db.billing;
     if (amount > outstandingBalance && outstandingBalance > 0) throw badRequest('Payment amount cannot exceed outstanding balance');
+    if (invoiceAmount !== null && amount > invoiceAmount) throw badRequest('Payment amount cannot exceed invoice amount');
 
     const payment = {
       id: `payment-${randomUUID()}`,
       amount,
-      invoiceId: input.invoiceId || null,
+      invoiceId: invoice?.id || null,
       paymentMethodId: input.paymentMethodId || db.billing.paymentMethods.find((method) => method.isDefault)?.id || null,
       createdAt: new Date().toISOString(),
     };
@@ -43,12 +51,12 @@ export async function createPayment(input) {
     db.billing.outstandingBalance = Math.max(0, Number((outstandingBalance - amount).toFixed(2)));
     db.billing.paymentStatus = db.billing.outstandingBalance === 0 ? 'Paid' : 'Due';
 
-    if (input.invoiceId) {
-      const invoice = db.billing.invoices.find((item) => item.id === input.invoiceId);
-      if (invoice) invoice.status = 'Paid';
+    if (invoice) {
+      invoice.status = 'Paid';
+      invoice.paidAt = payment.createdAt;
     } else if (db.billing.outstandingBalance === 0) {
       db.billing.invoices = db.billing.invoices.map((invoice) => (
-        invoice.status === 'Overdue' || invoice.status === 'Pending' ? { ...invoice, status: 'Paid' } : invoice
+        invoice.status === 'Overdue' || invoice.status === 'Pending' ? { ...invoice, status: 'Paid', paidAt: payment.createdAt } : invoice
       ));
     }
 
@@ -87,4 +95,3 @@ export async function getStatement(statementId = '') {
     balance: db.billing.outstandingBalance,
   };
 }
-

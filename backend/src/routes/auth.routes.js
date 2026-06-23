@@ -25,7 +25,7 @@ authRouter.post('/login', async (request, response, next) => {
 });
 
 authRouter.get('/me', requireAuth, async (request, response) => {
-  response.json({ user: toPublicUser(request.auth.user), session: request.auth.session });
+  response.json({ user: toPublicUser(request.auth.user, request.auth.access), session: request.auth.session });
 });
 
 authRouter.post('/logout', requireAuth, async (request, response, next) => {
@@ -36,4 +36,3 @@ authRouter.post('/logout', requireAuth, async (request, response, next) => {
     next(error);
   }
 });
-

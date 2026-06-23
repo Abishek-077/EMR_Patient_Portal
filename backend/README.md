@@ -68,6 +68,45 @@ Requires a bearer token. Returns the dashboard-specific payload:
 - vitals
 - security/status metadata
 
+## Access Control
+
+All access-control routes require a bearer token with admin permissions. The first registered account is promoted to administrator when no admin exists; subsequent signups receive the patient/normal user role.
+
+Default roles:
+
+- Administrator
+- Doctor
+- Nurse / Care Coordinator
+- Front Desk / Scheduler
+- Billing Specialist
+- Patient / Normal User
+- Family Proxy / Caregiver
+
+### `GET /api/admin/access-control`
+
+Returns the permission catalog, configured role permissions, safe user access records, and recent audit events.
+
+### `PATCH /api/admin/access-control/roles/:roleId`
+
+Updates a role permission matrix. The administrator role always keeps the critical admin permissions needed to avoid access-control lockout.
+
+```json
+{
+  "permissions": ["dashboard.view", "records.view", "messages.view"]
+}
+```
+
+### `PATCH /api/admin/users/:userId/access`
+
+Assigns one or more roles and updates account status. The API rejects changes that would remove the last active user with access-management permission.
+
+```json
+{
+  "roles": ["doctor"],
+  "status": "Active"
+}
+```
+
 ## Sprint 3 Messages API
 
 All routes require `Authorization: Bearer <token>`.
@@ -170,7 +209,7 @@ Payment request:
 }
 ```
 
-Omit `amount` to pay the full outstanding balance.
+Include `invoiceId` to pay a specific invoice. Omit both `amount` and `invoiceId` to pay the full outstanding balance with the selected/default payment method.
 
 ## Sprint 4 Profile API
 
@@ -193,4 +232,4 @@ All routes require `Authorization: Bearer <token>`.
 npm run test:api
 ```
 
-The smoke test uses a temporary JSON database and verifies auth, protected dashboard access, portal data privacy, and logout.
+The smoke test uses a temporary JSON database and verifies auth, protected dashboard access, portal data privacy, invoice payment, full balance payment, profile updates, and logout.

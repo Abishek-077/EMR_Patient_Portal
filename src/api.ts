@@ -2,7 +2,11 @@ import type {
   Appointment,
   AppointmentList,
   AppointmentRequest,
+  AccessControlOverview,
+  AccessStatus,
   BillingData,
+  BillingPaymentMethod,
+  BillingPaymentMethodInput,
   MedicationRequest,
   Message,
   MessageConversation,
@@ -42,6 +46,11 @@ export type AuthResponse = {
     id: string;
     fullName: string;
     email: string;
+    patientId: string;
+    roles: string[];
+    roleLabels: string[];
+    permissions: string[];
+    status: AccessStatus;
   };
 };
 
@@ -73,6 +82,24 @@ export function logout() {
 
 export function getPortalData() {
   return request<PortalData>('/api/portal');
+}
+
+export function getAccessControlOverview() {
+  return request<AccessControlOverview>('/api/admin/access-control');
+}
+
+export function updateRolePermissions(roleId: string, permissions: string[]) {
+  return request<AccessControlOverview>(`/api/admin/access-control/roles/${roleId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions }),
+  });
+}
+
+export function updateUserAccess(userId: string, roles: string[], status: AccessStatus) {
+  return request<AccessControlOverview>(`/api/admin/users/${userId}/access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ roles, status }),
+  });
 }
 
 export function updateTask(taskId: string, completed: boolean) {
@@ -161,9 +188,35 @@ export function requestNewMedication(medicationName: string, notes: string) {
   });
 }
 
-export function payFullBalance() {
+export function submitBillingPayment(input: {
+  amount?: number;
+  invoiceId?: string;
+  paymentMethodId?: string;
+} = {}) {
   return request<BillingData>('/api/billing/payments', {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function payFullBalance(paymentMethodId?: string) {
+  return submitBillingPayment({
+    paymentMethodId,
+  });
+}
+
+export function payInvoice(invoiceId: string, amount: number, paymentMethodId?: string) {
+  return submitBillingPayment({
+    invoiceId,
+    amount,
+    paymentMethodId,
+  });
+}
+
+export function addBillingPaymentMethod(input: BillingPaymentMethodInput) {
+  return request<BillingPaymentMethod>('/api/billing/payment-methods', {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }
 

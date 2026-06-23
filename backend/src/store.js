@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeAccessControl, normalizeUsers } from './domain/access-control.js';
 import { seedData } from './seed-data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,10 +47,12 @@ async function ensureStore() {
 }
 
 function normalizeDb(db) {
+  const accessControl = normalizeAccessControl(db.accessControl);
   return {
     ...structuredClone(seedData),
     ...db,
-    users: Array.isArray(db.users) ? db.users : [],
+    accessControl,
+    users: normalizeUsers(Array.isArray(db.users) ? db.users : [], accessControl),
     sessions: Array.isArray(db.sessions) ? db.sessions : [],
     tasks: Array.isArray(db.tasks) ? db.tasks : [],
     appointments: shouldUseExistingAppointments(db.appointments) ? db.appointments : seedData.appointments,
@@ -62,10 +65,17 @@ function normalizeDb(db) {
       ...seedData.preferredPharmacy,
       ...(db.preferredPharmacy || {}),
     },
-    labResults: Array.isArray(db.labResults) ? db.labResults : [],
-    messages: Array.isArray(db.messages) ? db.messages : [],
+    labResults: Array.isArray(db.labResults) ? db.labResults : seedData.labResults,
+    clinicalNotes: Array.isArray(db.clinicalNotes) ? db.clinicalNotes : seedData.clinicalNotes,
+    immunizations: Array.isArray(db.immunizations) ? db.immunizations : seedData.immunizations,
+    immunizationRecords: mergeSeedShape(seedData.immunizationRecords, db.immunizationRecords),
+    educationalResources: mergeSeedShape(seedData.educationalResources, db.educationalResources),
+    referrals: mergeSeedShape(seedData.referrals, db.referrals),
+    familyAccess: mergeSeedShape(seedData.familyAccess, db.familyAccess),
+    healthTrends: mergeSeedShape(seedData.healthTrends, db.healthTrends),
+    messages: Array.isArray(db.messages) ? db.messages : seedData.messages,
     messageConversations: Array.isArray(db.messageConversations) ? db.messageConversations : seedData.messageConversations,
-    documents: Array.isArray(db.documents) ? db.documents : [],
+    documents: Array.isArray(db.documents) ? db.documents : seedData.documents,
     billing: {
       ...seedData.billing,
       ...(db.billing || {}),
@@ -101,6 +111,35 @@ function normalizeDb(db) {
     },
     emergencyContacts: Array.isArray(db.emergencyContacts) ? db.emergencyContacts : seedData.emergencyContacts,
   };
+}
+
+function mergeSeedShape(seedValue, currentValue) {
+  if (Array.isArray(seedValue)) {
+    return Array.isArray(currentValue) ? currentValue : structuredClone(seedValue);
+  }
+
+  if (!isPlainObject(seedValue)) {
+    return currentValue ?? seedValue;
+  }
+
+  if (!isPlainObject(currentValue)) {
+    return structuredClone(seedValue);
+  }
+
+  const merged = {
+    ...structuredClone(seedValue),
+    ...currentValue,
+  };
+
+  for (const key of Object.keys(seedValue)) {
+    merged[key] = mergeSeedShape(seedValue[key], currentValue[key]);
+  }
+
+  return merged;
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function shouldUseExistingAppointments(appointments) {
