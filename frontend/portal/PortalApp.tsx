@@ -68,7 +68,14 @@ import {
   updateShareRecords,
   updateRolePermissions,
   updateUserAccess,
-} from './api';
+} from '../services/api';
+import {
+  canAccessRoute,
+  firstAllowedRoute,
+  getHashRoute,
+  hasPermission,
+} from './access';
+import type { PortalRoute } from './access';
 import type {
   AccessControlOverview,
   AccessRole,
@@ -83,9 +90,7 @@ import type {
   PortalData,
   Prescription,
   ProfileSettings,
-} from './types';
-
-type PortalRoute = 'dashboard' | 'records' | 'appointments' | 'messages' | 'prescriptions' | 'billing' | 'resources' | 'family' | 'referrals' | 'immunizations' | 'trends' | 'settings' | 'admin';
+} from '../domain/types';
 
 const initialVisitForm = {
   reason: 'Annual physical',
@@ -113,21 +118,6 @@ const menuItems = [
   { label: 'Access Control', route: 'admin' as const, icon: Security },
 ];
 
-const routePermissions: Record<PortalRoute, string> = {
-  dashboard: 'dashboard.view',
-  records: 'records.view',
-  appointments: 'appointments.view',
-  messages: 'messages.view',
-  prescriptions: 'prescriptions.view',
-  billing: 'billing.view',
-  resources: 'resources.view',
-  family: 'family.view',
-  referrals: 'referrals.view',
-  immunizations: 'immunizations.view',
-  trends: 'trends.view',
-  settings: 'profile.view',
-  admin: 'admin.access.view',
-};
 
 function labStatus(lab: LabResult) {
   if (lab.tone === 'good') return 'NORMAL';
@@ -167,34 +157,6 @@ function quickActionIcon(target: PortalRoute) {
 
 function portalSyncLabel() {
   return '2 mins ago';
-}
-
-function hasPermission(permissions: string[], permission: string) {
-  return permissions.includes(permission);
-}
-
-function canAccessRoute(route: PortalRoute, permissions: string[]) {
-  return hasPermission(permissions, routePermissions[route]);
-}
-
-function firstAllowedRoute(permissions: string[]): PortalRoute {
-  return menuItems.find((item) => canAccessRoute(item.route, permissions))?.route || 'dashboard';
-}
-
-function getHashRoute(): PortalRoute {
-  if (location.hash === '#records') return 'records';
-  if (location.hash === '#appointments') return 'appointments';
-  if (location.hash === '#messages') return 'messages';
-  if (location.hash === '#prescriptions') return 'prescriptions';
-  if (location.hash === '#billing') return 'billing';
-  if (location.hash === '#resources') return 'resources';
-  if (location.hash === '#family') return 'family';
-  if (location.hash === '#referrals') return 'referrals';
-  if (location.hash === '#immunizations') return 'immunizations';
-  if (location.hash === '#trends') return 'trends';
-  if (location.hash === '#settings') return 'settings';
-  if (location.hash === '#admin') return 'admin';
-  return 'dashboard';
 }
 
 function IconButton({ label, children, onClick }: { label: string; children: React.ReactNode; onClick?: () => void }) {

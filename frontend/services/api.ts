@@ -15,7 +15,7 @@ import type {
   RefillRequest,
   Task,
   VisitRequestInput,
-} from './types';
+} from '../domain/types';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('emr-auth-token');

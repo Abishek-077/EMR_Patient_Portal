@@ -8,9 +8,9 @@ import {
   View,
   ViewOff,
 } from '@carbon/icons-react';
-import { login, logout, signup } from './api';
-import PortalApp from './PortalApp';
-import './auth.scss';
+import { login, logout, signup } from '../services/api';
+import PortalApp from '../portal/PortalApp';
+import '../styles/auth.scss';
 
 type AuthPage = 'login' | 'signup';
 
