@@ -1,18 +1,21 @@
 # Frontend Architecture
 
-The React application lives in this folder so frontend concerns stay separate from the Express backend.
+The React application follows a feature-based architecture. Product areas own their UI and feature rules, while cross-feature contracts and infrastructure live in `shared/`.
 
 ## Structure
 
-- `app/` - application bootstrap and top-level auth/session shell.
-- `portal/` - authenticated portal experience, route access rules, and portal-specific UI.
-- `services/` - API client functions for backend HTTP endpoints.
-- `domain/` - shared TypeScript models used across app, portal, and services.
-- `styles/` - Carbon setup plus global and auth styles.
+- `app/` - application composition root and React bootstrap.
+- `features/auth/` - login, signup, logout, and session gate behavior.
+- `features/portal/` - authenticated patient portal shell and portal screens.
+- `features/access-control/` - frontend route and permission rules for RBAC.
+- `shared/api/` - backend HTTP client functions used by features.
+- `shared/types.ts` - shared TypeScript contracts for API/domain data.
+- `shared/styles/` - Carbon setup plus global and auth styles.
 
-## Boundaries
+## Feature Rules
 
-- UI components should call backend APIs through `services/`, not raw `fetch`.
-- Permission and routing decisions for the portal should live in `portal/access.ts`.
-- Shared data contracts belong in `domain/types.ts`.
-- Backend-specific logic stays under `backend/`; frontend modules should not import backend code.
+- New product capabilities should start under `features/<feature-name>/`.
+- Feature modules may import from `shared/` and other feature public entry files such as `features/auth/index.ts`, but should not reach into backend code.
+- Shared modules must stay generic; feature-specific state, permission decisions, and UI belong inside the owning feature.
+- UI should call backend endpoints through `shared/api/`, not raw `fetch`.
+- Portal permission and route decisions belong in `features/access-control/`.

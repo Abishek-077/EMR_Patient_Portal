@@ -68,14 +68,14 @@ import {
   updateShareRecords,
   updateRolePermissions,
   updateUserAccess,
-} from '../services/api';
+} from '../../shared/api/api';
 import {
   canAccessRoute,
   firstAllowedRoute,
   getHashRoute,
   hasPermission,
-} from './access';
-import type { PortalRoute } from './access';
+} from '../access-control';
+import type { PortalRoute } from '../access-control';
 import type {
   AccessControlOverview,
   AccessRole,
@@ -90,7 +90,7 @@ import type {
   PortalData,
   Prescription,
   ProfileSettings,
-} from '../domain/types';
+} from '../../shared/types';
 
 const initialVisitForm = {
   reason: 'Annual physical',

@@ -2,7 +2,7 @@
 
 Full-stack OpenMRS O3-inspired patient portal built with React, Vite, Carbon, IBM Plex Sans, Express, and a persistent JSON data store. The API lives in `backend/`.
 
-Frontend source lives in `frontend/` with app, portal, services, domain types, and styles separated by responsibility. Backend source lives in `backend/`.
+Frontend source lives in `frontend/` using a feature-based structure with `app/`, `features/`, and `shared/`. Backend source lives in `backend/`.
 
 ## Run
 
