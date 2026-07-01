@@ -34,7 +34,26 @@ export type Appointment = {
   initials?: string;
   action?: string;
   secondaryAction?: string;
+  reason?: string;
   notes?: string;
+};
+
+export type Provider = {
+  id: string;
+  name: string;
+  department: string;
+  role: string;
+  location: string;
+  available: boolean;
+  preferred?: boolean;
+};
+
+export type AppointmentSlot = {
+  id: string;
+  department: string;
+  date: string;
+  time: string;
+  status: 'Available' | 'Booked' | string;
 };
 
 export type AppointmentRequest = {
@@ -131,6 +150,16 @@ export type BillingData = {
   }>;
 };
 
+export type BillingStatement = {
+  id: string;
+  invoiceIds: string[];
+  period: string;
+  generatedAt: string;
+  status: string;
+  invoices: BillingInvoice[];
+  balance: number;
+};
+
 export type PreferredPharmacy = {
   id: string;
   name: string;
@@ -153,6 +182,7 @@ export type ProfileSettings = {
 };
 
 export type LabResult = {
+  id?: string;
   label: string;
   value: number;
   unit: string;
@@ -337,6 +367,13 @@ export type FamilyAccessData = {
     detail: string;
     tone: 'success' | 'info' | 'neutral';
   }>;
+  reports?: Array<{
+    id: string;
+    summary: string;
+    contactPreference: string;
+    status: string;
+    createdAt: string;
+  }>;
 };
 
 export type HealthTrendsData = {
@@ -471,6 +508,16 @@ export type ThreadMessage = {
   };
 };
 
+export type UploadedFile = {
+  id: string;
+  fileName: string;
+  category: string;
+  size: string;
+  source: string;
+  relatedId?: string | null;
+  uploadedAt: string;
+};
+
 export type MessageConversation = {
   id: string;
   participantName: string;
@@ -510,6 +557,8 @@ export type AppointmentList = {
     past: number;
     cancelled: number;
   };
+  providers?: Provider[];
+  appointmentSlots?: AppointmentSlot[];
 };
 
 export type PortalDocument = {
@@ -531,8 +580,11 @@ export type PortalData = {
   patient: Patient;
   preferences: {
     shareRecords: boolean;
+    mentalHealthNotes?: boolean;
   };
   tasks: Task[];
+  providers: Provider[];
+  appointmentSlots: AppointmentSlot[];
   appointments: Appointment[];
   appointmentRequests: AppointmentRequest[];
   medications: Medication[];
@@ -556,10 +608,31 @@ export type PortalData = {
   messages: Message[];
   messageConversations: MessageConversation[];
   documents: PortalDocument[];
+  uploadedFiles: UploadedFile[];
+  activityLog: Array<{
+    id: string;
+    type: string;
+    title: string;
+    detail: string;
+    createdAt: string;
+  }>;
+  resourceInteractions: Array<{
+    id: string;
+    resourceId: string;
+    resourceTitle: string;
+    action: string;
+    createdAt: string;
+  }>;
   dashboard: DashboardData;
 };
 
 export type VisitRequestInput = {
+  service?: string;
+  provider?: string;
+  department?: string;
+  date?: string;
+  time?: string;
+  location?: string;
   reason: string;
   preferredDate: string;
   notes: string;

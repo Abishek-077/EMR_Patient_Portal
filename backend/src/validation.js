@@ -41,14 +41,17 @@ export function appointmentRequestSchema(body) {
 }
 
 export function scheduleAppointmentSchema(body) {
+  const provider = stringField(body.provider ?? body.clinician, 'provider');
   return {
-    service: stringField(body.service ?? body.reason, 'service'),
-    clinician: optionalString(body.clinician || 'Care Team'),
+    service: stringField(body.service, 'service'),
+    clinician: provider,
+    provider,
     date: stringField(body.date ?? body.preferredDate, 'date'),
-    time: optionalString(body.time || 'Time pending'),
-    department: optionalString(body.department || 'General Medicine'),
+    time: stringField(body.time, 'time'),
+    department: stringField(body.department, 'department'),
     location: optionalString(body.location || 'Scheduling pending'),
-    notes: optionalString(body.notes),
+    reason: stringField(body.reason ?? body.notes, 'reason'),
+    notes: optionalString(body.notes || body.reason),
   };
 }
 
@@ -56,6 +59,8 @@ export function rescheduleAppointmentSchema(body) {
   return {
     date: stringField(body.date ?? body.preferredDate, 'date'),
     time: stringField(body.time, 'time'),
+    provider: optionalString(body.provider),
+    department: optionalString(body.department),
     notes: optionalString(body.notes),
   };
 }
@@ -76,6 +81,7 @@ export function sendMessageSchema(body) {
 export function conversationMessageSchema(body) {
   return {
     body: stringField(body.body ?? body.message, 'body'),
+    attachment: attachmentSchema(body.attachment, false),
   };
 }
 
@@ -89,6 +95,12 @@ export function medicationRequestSchema(body) {
   return {
     medicationName: stringField(body.medicationName, 'medicationName'),
     notes: optionalString(body.notes),
+  };
+}
+
+export function drugInteractionSchema(body) {
+  return {
+    medicationName: stringField(body.medicationName, 'medicationName'),
   };
 }
 
@@ -155,6 +167,83 @@ export function insuranceDetailsSchema(body) {
   };
 }
 
+export function patientNoteSchema(body) {
+  return {
+    title: stringField(body.title, 'title'),
+    text: stringField(body.text ?? body.body, 'text'),
+    type: optionalString(body.type || 'Patient Note'),
+  };
+}
+
+export function referralRequestSchema(body) {
+  return {
+    provider: optionalString(body.provider || 'Care Team'),
+    specialty: stringField(body.specialty, 'specialty'),
+    reason: stringField(body.reason, 'reason'),
+    clinic: optionalString(body.clinic),
+  };
+}
+
+export function referralActionSchema(body) {
+  return {
+    action: stringField(body.action, 'action'),
+    note: optionalString(body.note),
+  };
+}
+
+export function proxyInviteSchema(body) {
+  return {
+    name: stringField(body.name, 'name'),
+    relationship: stringField(body.relationship, 'relationship'),
+    permissions: stringField(body.permissions, 'permissions'),
+  };
+}
+
+export function proxyPermissionSchema(body) {
+  return {
+    permissions: stringField(body.permissions, 'permissions'),
+  };
+}
+
+export function dependentSchema(body) {
+  return {
+    name: stringField(body.name, 'name'),
+    relationship: stringField(body.relationship, 'relationship'),
+    detail: optionalString(body.detail || 'Added from patient portal'),
+    access: optionalString(body.access || 'View Only'),
+  };
+}
+
+export function privacySettingsSchema(body) {
+  return {
+    shareRecords: typeof body.shareRecords === 'boolean' ? body.shareRecords : null,
+    mentalHealthNotes: typeof body.mentalHealthNotes === 'boolean' ? body.mentalHealthNotes : null,
+  };
+}
+
+export function unauthorizedAccessReportSchema(body) {
+  return {
+    summary: stringField(body.summary, 'summary'),
+    contactPreference: optionalString(body.contactPreference || 'Secure message'),
+  };
+}
+
+export function resourceInteractionSchema(body) {
+  return {
+    action: stringField(body.action, 'action'),
+  };
+}
+
+export function uploadedFileSchema(body) {
+  return {
+    fileName: stringField(body.fileName ?? body.name, 'fileName'),
+    category: stringField(body.category, 'category'),
+    size: optionalString(body.size || 'Metadata only'),
+    source: optionalString(body.source || 'patient-portal'),
+    relatedId: optionalString(body.relatedId),
+  };
+}
+
 export function emergencyContactSchema(body) {
   return {
     name: stringField(body.name, 'name'),
@@ -162,6 +251,15 @@ export function emergencyContactSchema(body) {
     primaryPhone: stringField(body.primaryPhone, 'primaryPhone'),
     alternatePhone: optionalString(body.alternatePhone || '-'),
     access: stringField(body.access, 'access'),
+  };
+}
+
+function attachmentSchema(value, required) {
+  if (!value && !required) return null;
+  if (!value || typeof value !== 'object') throw badRequest('attachment must be an object');
+  return {
+    fileName: stringField(value.fileName ?? value.name, 'attachment.fileName'),
+    size: optionalString(value.size || 'Metadata only'),
   };
 }
 

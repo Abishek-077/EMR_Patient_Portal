@@ -55,6 +55,8 @@ function normalizeDb(db) {
     users: normalizeUsers(Array.isArray(db.users) ? db.users : [], accessControl),
     sessions: Array.isArray(db.sessions) ? db.sessions : [],
     tasks: Array.isArray(db.tasks) ? db.tasks : [],
+    providers: Array.isArray(db.providers) ? db.providers : seedData.providers,
+    appointmentSlots: Array.isArray(db.appointmentSlots) ? db.appointmentSlots : seedData.appointmentSlots,
     appointments: shouldUseExistingAppointments(db.appointments) ? db.appointments : seedData.appointments,
     appointmentRequests: Array.isArray(db.appointmentRequests) ? db.appointmentRequests : [],
     medications: Array.isArray(db.medications) ? db.medications : [],
@@ -76,6 +78,9 @@ function normalizeDb(db) {
     messages: Array.isArray(db.messages) ? db.messages : seedData.messages,
     messageConversations: Array.isArray(db.messageConversations) ? db.messageConversations : seedData.messageConversations,
     documents: Array.isArray(db.documents) ? db.documents : seedData.documents,
+    uploadedFiles: Array.isArray(db.uploadedFiles) ? db.uploadedFiles : seedData.uploadedFiles,
+    activityLog: Array.isArray(db.activityLog) ? db.activityLog : seedData.activityLog,
+    resourceInteractions: Array.isArray(db.resourceInteractions) ? db.resourceInteractions : seedData.resourceInteractions,
     billing: {
       ...seedData.billing,
       ...(db.billing || {}),

@@ -8,7 +8,7 @@ import {
   View,
   ViewOff,
 } from '@carbon/icons-react';
-import { login, logout, signup } from '../../shared/api/api';
+import { getStoredAuthToken, login, logout, signup } from '../../shared/api/api';
 import { PortalApp } from '../portal';
 import '../../shared/styles/auth.scss';
 
@@ -98,7 +98,7 @@ function PasswordField({
   );
 }
 
-function LoginPage({ onAuthenticated }: { onAuthenticated: (token: string) => void }) {
+function LoginPage({ onAuthenticated }: { onAuthenticated: (token: string, remember: boolean) => void }) {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -111,7 +111,7 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: (token: string) => vo
     setSubmitting(true);
     try {
       const response = await login(usernameOrEmail, password);
-      onAuthenticated(response.token);
+      onAuthenticated(response.token, rememberMe);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Could not sign in');
     } finally {
@@ -173,7 +173,7 @@ function PasswordRule({ satisfied, children }: { satisfied: boolean; children: R
   return <span className={satisfied ? 'satisfied' : ''}><i />{children}</span>;
 }
 
-function SignupPage({ onAuthenticated }: { onAuthenticated: (token: string) => void }) {
+function SignupPage({ onAuthenticated }: { onAuthenticated: (token: string, remember: boolean) => void }) {
   const [form, setForm] = useState(initialSignup);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -193,7 +193,7 @@ function SignupPage({ onAuthenticated }: { onAuthenticated: (token: string) => v
     setSubmitting(true);
     try {
       const response = await signup(form);
-      onAuthenticated(response.token);
+      onAuthenticated(response.token, true);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Could not create account');
     } finally {
@@ -272,7 +272,7 @@ function SignupPage({ onAuthenticated }: { onAuthenticated: (token: string) => v
 }
 
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('emr-auth-token') || '');
+  const [token, setToken] = useState(() => getStoredAuthToken());
   const [authPage, setAuthPage] = useState<AuthPage>(() => (location.hash === '#signup' ? 'signup' : 'login'));
 
   useEffect(() => {
@@ -284,8 +284,11 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const handleAuthenticated = useCallback((nextToken: string) => {
-    localStorage.setItem('emr-auth-token', nextToken);
+  const handleAuthenticated = useCallback((nextToken: string, remember: boolean) => {
+    localStorage.removeItem('emr-auth-token');
+    sessionStorage.removeItem('emr-auth-token');
+    const storage = remember ? localStorage : sessionStorage;
+    storage.setItem('emr-auth-token', nextToken);
     setToken(nextToken);
     location.hash = '#dashboard';
   }, []);
@@ -297,6 +300,7 @@ function App() {
       // A stale session is already signed out server-side.
     } finally {
       localStorage.removeItem('emr-auth-token');
+      sessionStorage.removeItem('emr-auth-token');
       setToken('');
       location.hash = '#login';
     }

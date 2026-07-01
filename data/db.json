@@ -1,10 +1,39 @@
 {
-  "users": [],
-  "sessions": [],
+  "users": [
+    {
+      "id": "user-2c38a205-cef0-4ec9-9eb9-aac8e232bd20",
+      "fullName": "Abishek Ghmire",
+      "email": "abishekxofficial987@gmail.com",
+      "dateOfBirth": "2026-06-18",
+      "patientId": "230441",
+      "passwordHash": "f7bf6370688e53f36b5357d24f0d72536b3f9c141cc456682ec79b310df0c8b9ad5df5d89088cebabf2278ae8d07085c72191eb9df0dfc12bf6dcf16497b7118",
+      "passwordSalt": "a1d80c6f20b8055d33a006a4a148237c",
+      "createdAt": "2026-06-23T09:12:49.691Z",
+      "roles": [
+        "admin",
+        "patient"
+      ],
+      "status": "Active"
+    }
+  ],
+  "sessions": [
+    {
+      "token": "66444170-858b-43c3-9487-dcf697ef124c",
+      "userId": "user-2c38a205-cef0-4ec9-9eb9-aac8e232bd20",
+      "createdAt": "2026-06-26T03:34:20.279Z",
+      "expiresAt": "2026-07-03T03:34:20.279Z"
+    },
+    {
+      "token": "81c82a0d-e103-41fe-9ca4-c495145f27e0",
+      "userId": "user-2c38a205-cef0-4ec9-9eb9-aac8e232bd20",
+      "createdAt": "2026-07-01T17:50:47.434Z",
+      "expiresAt": "2026-07-08T17:50:47.434Z"
+    }
+  ],
   "patient": {
-    "name": "Sarah Mitchell",
+    "name": "Abishek Ghmire",
     "age": 34,
-    "identifier": "Health ID: 100-234-567",
+    "identifier": "Health ID: 230441",
     "location": "Health Center 1",
     "primaryCondition": "Preventive care plan",
     "careTeam": "Dr. James Wilson and Dr. Emily Chen",
@@ -13,8 +42,84 @@
     "emergencyContact": "Michael Mitchell"
   },
   "preferences": {
-    "shareRecords": true
+    "shareRecords": true,
+    "mentalHealthNotes": false
   },
+  "providers": [
+    {
+      "id": "provider-sarah-jenkins",
+      "name": "Dr. Sarah Jenkins",
+      "department": "Cardiology",
+      "role": "Cardiologist",
+      "location": "Main Clinic, Suite 402",
+      "available": true,
+      "preferred": false
+    },
+    {
+      "id": "provider-michael-chen",
+      "name": "Dr. Michael Chen",
+      "department": "Cardiology",
+      "role": "Cardiologist",
+      "location": "Main Clinic, Suite 402",
+      "available": true,
+      "preferred": true
+    },
+    {
+      "id": "provider-james-wilson",
+      "name": "Dr. James Wilson",
+      "department": "Primary Care",
+      "role": "Internal Medicine",
+      "location": "Health Center 1",
+      "available": true,
+      "preferred": false
+    },
+    {
+      "id": "provider-emily-chen",
+      "name": "Dr. Emily Chen",
+      "department": "Primary Care",
+      "role": "Family Medicine",
+      "location": "Suite 405",
+      "available": true,
+      "preferred": false
+    }
+  ],
+  "appointmentSlots": [
+    {
+      "id": "slot-2023-11-07-0915",
+      "department": "Cardiology",
+      "date": "Nov 07, 2023",
+      "time": "09:15 AM",
+      "status": "Available"
+    },
+    {
+      "id": "slot-2023-11-08-0800",
+      "department": "Cardiology",
+      "date": "Nov 08, 2023",
+      "time": "08:00 AM",
+      "status": "Available"
+    },
+    {
+      "id": "slot-2023-11-08-1030",
+      "department": "Cardiology",
+      "date": "Nov 08, 2023",
+      "time": "10:30 AM",
+      "status": "Available"
+    },
+    {
+      "id": "slot-2023-11-08-1145",
+      "department": "Cardiology",
+      "date": "Nov 08, 2023",
+      "time": "11:45 AM",
+      "status": "Available"
+    },
+    {
+      "id": "slot-2023-11-09-1415",
+      "department": "Primary Care",
+      "date": "Nov 09, 2023",
+      "time": "02:15 PM",
+      "status": "Available"
+    }
+  ],
   "tasks": [
     {
       "id": "task-1",
@@ -42,6 +147,46 @@
     }
   ],
   "appointments": [
+    {
+      "id": "apt-9438b506-dc19-4c5b-888b-e799464cba00",
+      "service": "Cardiology follow-up",
+      "clinician": "Dr. Michael Chen",
+      "provider": "Dr. Michael Chen",
+      "date": "Nov 08, 2023",
+      "time": "10:30 AM",
+      "department": "Cardiology",
+      "location": "Main Clinic, Suite 402",
+      "initials": "MC",
+      "type": "Requested",
+      "status": "Cancelled",
+      "statusGroup": "Cancelled",
+      "action": "Details",
+      "secondaryAction": "Reschedule",
+      "reason": "Annual physical",
+      "notes": "Annual physical",
+      "createdAt": "2026-07-01T17:51:35.796Z",
+      "cancelledAt": "2026-07-01T17:51:40.651Z",
+      "cancellationReason": "Patient requested cancellation"
+    },
+    {
+      "id": "apt-a93dc157-e847-4bbb-8f40-54cc18c39847",
+      "service": "Cardiology follow-up",
+      "clinician": "Dr. Michael Chen",
+      "provider": "Dr. Michael Chen",
+      "date": "Nov 08, 2023",
+      "time": "10:30 AM",
+      "department": "Primary Care",
+      "location": "Main Clinic, Suite 402",
+      "initials": "MC",
+      "type": "Requested",
+      "status": "Pending",
+      "statusGroup": "Upcoming",
+      "action": "Details",
+      "secondaryAction": "Cancel",
+      "reason": "Annual physical",
+      "notes": "Annual physical",
+      "createdAt": "2026-06-24T05:54:49.190Z"
+    },
     {
       "id": "apt-cardiology-1",
       "service": "Cardiology follow-up",
@@ -123,7 +268,24 @@
       "secondaryAction": "Reschedule"
     }
   ],
-  "appointmentRequests": [],
+  "appointmentRequests": [
+    {
+      "id": "req-52a2838f-7ce5-4faf-9252-e58b584e7cd7",
+      "reason": "Annual physical",
+      "preferredDate": "Nov 08, 2023",
+      "notes": "",
+      "status": "Queued",
+      "createdAt": "2026-07-01T17:51:35.788Z"
+    },
+    {
+      "id": "req-9d355edc-4ee5-42bd-9e8d-2d8be40304fe",
+      "reason": "Annual physical",
+      "preferredDate": "Nov 08, 2023",
+      "notes": "",
+      "status": "Queued",
+      "createdAt": "2026-06-24T05:54:49.161Z"
+    }
+  ],
   "medications": [
     {
       "name": "Metformin XR",
@@ -207,13 +369,32 @@
       "refillCount": "-",
       "refillDetail": "",
       "status": "Pending Request"
+    },
+    {
+      "id": "rx-pending-ea25cf5a-974d-48d5-b86e-008661fc3788",
+      "name": "Tooth Paste",
+      "detail": "Oral - Rx: Pending",
+      "frequency": "Pending clinical review",
+      "started": "-",
+      "refillCount": "-",
+      "refillDetail": "",
+      "status": "Pending Request",
+      "medicationRequestId": "medication-6cf8fee2-b08b-405e-b4ba-a3bd58e1ffb9"
     }
   ],
   "refillRequests": [],
-  "medicationRequests": [],
+  "medicationRequests": [
+    {
+      "id": "medication-6cf8fee2-b08b-405e-b4ba-a3bd58e1ffb9",
+      "medicationName": "Tooth Paste",
+      "notes": "",
+      "status": "Pending",
+      "createdAt": "2026-06-24T05:48:24.785Z"
+    }
+  ],
   "billing": {
-    "outstandingBalance": 1248.5,
-    "paymentStatus": "Due",
+    "outstandingBalance": 0,
+    "paymentStatus": "Paid",
     "dueDate": "Oct 25",
     "breakdown": {
       "consultation": 450,
@@ -242,7 +423,8 @@
         "date": "Oct 12, 2023",
         "description": "Annual Wellness Exam - Dr. Smith",
         "amount": 450,
-        "status": "Overdue"
+        "status": "Paid",
+        "paidAt": "2026-06-23T17:53:09.756Z"
       },
       {
         "id": "INV-2023-082",
@@ -256,7 +438,8 @@
         "date": "Sep 15, 2023",
         "description": "Pharmacy - Antibiotics Refill",
         "amount": 34.5,
-        "status": "Pending"
+        "status": "Paid",
+        "paidAt": "2026-06-23T17:53:09.756Z"
       },
       {
         "id": "INV-2023-065",
@@ -266,7 +449,15 @@
         "status": "Paid"
       }
     ],
-    "payments": [],
+    "payments": [
+      {
+        "id": "payment-53daa515-889b-434b-9613-b792ddd0198f",
+        "amount": 1248.5,
+        "invoiceId": null,
+        "paymentMethodId": "method-visa",
+        "createdAt": "2026-06-23T17:53:09.756Z"
+      }
+    ],
     "statements": [
       {
         "id": "statement-2023-10",
@@ -295,10 +486,10 @@
     ]
   },
   "profileSettings": {
-    "fullName": "Johnathan Alexander Smith",
-    "email": "j.smith@medical-portal.org",
+    "fullName": "Abishek Ghmire",
+    "email": "abishekxofficial987@gmail.com",
     "phone": "+1 (555) 012-3456",
-    "dateOfBirth": "05/12/1985",
+    "dateOfBirth": "2026-06-18",
     "address": "742 Evergreen Terrace, Springfield, OR 97403",
     "language": "English (US)",
     "timezone": "(GMT-08:00) Pacific Time"
@@ -365,7 +556,729 @@
       "tone": "warning"
     }
   ],
+  "clinicalNotes": [
+    {
+      "id": "note-bf65d1e3-0e42-4128-9cc1-265a1b4519be",
+      "type": "Patient Note",
+      "date": "Jul 01, 2026",
+      "title": "Hi",
+      "text": "This is medicine that i have to eat",
+      "createdAt": "2026-07-01T17:51:18.978Z"
+    },
+    {
+      "id": "note-post-op",
+      "type": "Follow-up Visit",
+      "date": "Oct 12, 2023",
+      "title": "Post-operative Management",
+      "text": "Patient reports significant reduction in abdominal pain. Surgical incision site is healing well with no signs of infection or erythema."
+    },
+    {
+      "id": "note-med-review",
+      "type": "Telehealth",
+      "date": "Sep 28, 2023",
+      "title": "Medication Review",
+      "text": "Discussed adjustment to Metformin dosage. Patient experiencing mild GI distress. Suggested evening dosing with food and continued monitoring."
+    }
+  ],
+  "immunizations": [
+    {
+      "id": "imm-influenza",
+      "title": "Influenza (Seasonal)",
+      "last": "Last: Oct 02, 2023",
+      "doses": "2 doses",
+      "status": "Up to date",
+      "tone": "green"
+    },
+    {
+      "id": "imm-covid-booster",
+      "title": "COVID-19 Booster",
+      "last": "Last: Jan 15, 2023",
+      "doses": "3 doses",
+      "status": "Due Jan 2024",
+      "tone": "yellow"
+    },
+    {
+      "id": "imm-tdap",
+      "title": "Tetanus (Tdap)",
+      "last": "Last: Aug 12, 2019",
+      "doses": "1 dose",
+      "status": "Up to date",
+      "tone": "green"
+    }
+  ],
+  "immunizationRecords": {
+    "alerts": [
+      {
+        "id": "imm-alert-flu",
+        "tone": "warning",
+        "title": "Overdue: Influenza (Seasonal)",
+        "detail": "Scheduled for Oct 15, 2023"
+      },
+      {
+        "id": "imm-alert-tdap",
+        "tone": "info",
+        "title": "Upcoming: Tdap Booster",
+        "detail": "Due in 45 days (Dec 20, 2023)"
+      },
+      {
+        "id": "imm-alert-travel",
+        "tone": "neutral",
+        "title": "Travel Vaccines",
+        "detail": "Consultation recommended for upcoming trip."
+      }
+    ],
+    "completed": [
+      {
+        "id": "imm-covid-3",
+        "vaccine": "COVID-19 (Pfizer-BioNTech)",
+        "date": "Aug 12, 2023",
+        "dose": "Dose 3 (Booster)",
+        "provider": "Dr. Sarah Jenkins",
+        "route": "Left Deltoid / IM"
+      },
+      {
+        "id": "imm-hepb-3",
+        "vaccine": "Hepatitis B (Recombinant)",
+        "date": "Jan 15, 2023",
+        "dose": "3 of 3",
+        "provider": "Clinic Nurse A. Chen",
+        "route": "Right Deltoid / IM"
+      },
+      {
+        "id": "imm-hepb-2",
+        "vaccine": "Hepatitis B (Recombinant)",
+        "date": "Dec 10, 2022",
+        "dose": "2 of 3",
+        "provider": "Clinic Nurse A. Chen",
+        "route": "Left Deltoid / IM"
+      },
+      {
+        "id": "imm-hepb-1",
+        "vaccine": "Hepatitis B (Recombinant)",
+        "date": "Nov 05, 2022",
+        "dose": "1 of 3",
+        "provider": "Dr. Marcus Thorne",
+        "route": "Right Deltoid / IM"
+      },
+      {
+        "id": "imm-mmr",
+        "vaccine": "MMR (Measles, Mumps, Rubella)",
+        "date": "Jun 22, 2018",
+        "dose": "Booster",
+        "provider": "Central Health Clinic",
+        "route": "Subcutaneous"
+      },
+      {
+        "id": "imm-varicella",
+        "vaccine": "Varicella",
+        "date": "Apr 14, 2018",
+        "dose": "1 of 1",
+        "provider": "Central Health Clinic",
+        "route": "Subcutaneous"
+      },
+      {
+        "id": "imm-flu-2022",
+        "vaccine": "Influenza (Seasonal)",
+        "date": "Oct 20, 2022",
+        "dose": "Annual",
+        "provider": "Walgreens Pharmacy",
+        "route": "Left Deltoid / IM"
+      },
+      {
+        "id": "imm-td-2014",
+        "vaccine": "Tetanus/Diphtheria (Td)",
+        "date": "Sep 10, 2014",
+        "dose": "Booster",
+        "provider": "City Hospital",
+        "route": "Right Deltoid / IM"
+      }
+    ],
+    "compliance": {
+      "percent": 85,
+      "completed": 11,
+      "recommended": 13,
+      "detail": "You are up to date with 11 out of 13 recommended adult immunizations."
+    }
+  },
+  "educationalResources": {
+    "featured": {
+      "id": "resource-hypertension-guide",
+      "category": "Condition Focus",
+      "title": "Managing Hypertension: A Comprehensive Daily Guide",
+      "detail": "Based on your latest blood pressure readings (145/92 mmHg), this guide offers actionable steps for diet, exercise, and medication adherence.",
+      "meta": "12 min read",
+      "updated": "Updated 2 days ago",
+      "actionLabel": "Read Guide",
+      "imageUrl": "https://lh3.googleusercontent.com/aida-public/AB6AXuBCMfqWfG-QA2INw_Eo4vXKMi-vPlVtKP7QtEoli50YCFKGOgszyurpo1W7Z5EB5cJO2zJhIZRZPsbP7Umh6ewEbjGEX2zgdAdmKkXU0EvaYkfRvxsjW4bx1Fz6PO5quvKAB9psp5LoprVaaFmoKMnHG02rIhuLqDD_pXVFEMkQAlIxJqjLRYx2P7hys7X9-iiopk0GZ26WudjQuuCHOWGK2C1_1QUTqX5JwKy_qyKX5gx2gSEZbASSglvQz8ambyGbbmkqu5Wu12SG"
+    },
+    "video": {
+      "id": "resource-lipid-video",
+      "title": "Understanding Your Lipid Panel Results",
+      "detail": "A visual walkthrough of what HDL, LDL, and Triglycerides mean for your heart health.",
+      "duration": "04:15",
+      "category": "Video Tutorial",
+      "imageUrl": "https://lh3.googleusercontent.com/aida-public/AB6AXuBPptj0e2w8fwLXdAIJf583WykXafGGKMaOHkKVgm84ceqn7Kn6Bm1vrW7M58d8kZHjDxSQosvR4lnPblM-pEB7p7748U33wnUW-J_a2SwCa7KSt3y9PYn-WiXZoMmmjamysebYPIBtM66ud0eAGFpgijGwU-yMpdFes-BsiTaFlS3iwGb8Hd6qwhuqaRdx5IXLbWzms7RkPuS9Ydc7M7yVgbZLOFEDUYcR9IKZPjxZU0pyWNxnQ5neN1JONsFGXhsRcW9bEn0T5EqD"
+    },
+    "groups": [
+      {
+        "id": "condition-guides",
+        "title": "Condition Guides",
+        "items": [
+          {
+            "title": "Type 2 Diabetes Basics",
+            "detail": "A starter kit for newly diagnosed patients.",
+            "action": "Read Article"
+          },
+          {
+            "title": "Managing Chronic Pain",
+            "detail": "Evidence-based non-pharmaceutical options.",
+            "action": "Read Article"
+          },
+          {
+            "title": "Kidney Health 101",
+            "detail": "Understanding GFR and hydration requirements.",
+            "action": "Read Article"
+          }
+        ]
+      },
+      {
+        "id": "medication-info",
+        "title": "Medication Info",
+        "items": [
+          {
+            "title": "Statins: Benefits vs. Risks",
+            "detail": "Addressing common concerns about muscle pain.",
+            "action": "View Guide"
+          },
+          {
+            "title": "Blood Thinners Safely",
+            "detail": "Dietary restrictions and warning signs to watch.",
+            "action": "View Guide"
+          },
+          {
+            "title": "Antibiotic Stewardship",
+            "detail": "Why completing the full course is critical.",
+            "action": "View Guide"
+          }
+        ]
+      },
+      {
+        "id": "wellness-tips",
+        "title": "Wellness Tips",
+        "items": [
+          {
+            "title": "Anti-Inflammatory Diet",
+            "detail": "Top 10 foods to help reduce swelling naturally.",
+            "action": "Learn More"
+          },
+          {
+            "title": "Sleep Hygiene Protocol",
+            "detail": "Improving rest for better immune function.",
+            "action": "Learn More"
+          },
+          {
+            "title": "Stress Management 101",
+            "detail": "Mindfulness techniques for clinical anxiety.",
+            "action": "Learn More"
+          }
+        ]
+      }
+    ],
+    "library": [
+      {
+        "id": "lib-cbc",
+        "title": "Understanding Lab Results: CBC Panel",
+        "detail": "A detailed guide on red and white blood cell counts.",
+        "category": "Diagnostics",
+        "updated": "Oct 12, 2023",
+        "format": "Article"
+      },
+      {
+        "id": "lib-cardio",
+        "title": "Low-Impact Cardio for Joint Health",
+        "detail": "15-minute home workout designed for arthritis patients.",
+        "category": "Physical Therapy",
+        "updated": "Nov 02, 2023",
+        "format": "Video"
+      },
+      {
+        "id": "lib-wound",
+        "title": "Post-Operative Wound Care",
+        "detail": "Essential steps for home care and identifying infection.",
+        "category": "Surgery Recovery",
+        "updated": "Sep 28, 2023",
+        "format": "PDF"
+      }
+    ]
+  },
+  "referrals": {
+    "summary": {
+      "active": 12,
+      "pending": 3,
+      "completedYear": 8
+    },
+    "rows": [
+      {
+        "id": "ref-9923",
+        "issuedDate": "Oct 24, 2023",
+        "provider": "Dr. Sarah Jenkins",
+        "specialty": "Cardiology",
+        "reason": "Echocardiogram follow-up post hypertension review",
+        "status": "Pending",
+        "actions": [
+          "Details",
+          "Contact"
+        ]
+      },
+      {
+        "id": "ref-8841",
+        "issuedDate": "Oct 12, 2023",
+        "provider": "Dr. Aris Thorne",
+        "specialty": "Dermatology",
+        "reason": "Skin biopsy (Left forearm lesion)",
+        "status": "Scheduled",
+        "actions": [
+          "View Calendar"
+        ],
+        "appointment": "Appt: Nov 05"
+      },
+      {
+        "id": "ref-7220",
+        "issuedDate": "Sep 28, 2023",
+        "provider": "City General Imaging",
+        "specialty": "Radiology",
+        "reason": "Standard MRI - Cranial without contrast",
+        "status": "Completed",
+        "actions": [
+          "View Results"
+        ]
+      },
+      {
+        "id": "ref-6119",
+        "issuedDate": "Sep 15, 2023",
+        "provider": "Dr. Lydia Vance",
+        "specialty": "Endocrinology",
+        "reason": "T1D Management review",
+        "status": "Pending",
+        "actions": [
+          "Resend Request"
+        ]
+      }
+    ],
+    "focus": {
+      "caseId": "REF-9923",
+      "title": "Referral Detail Focus",
+      "note": "\"Patient presents with chronic hypertension. Referral to Cardiology is imperative for diagnostic imaging and baseline assessment of cardiac function. Priority: Routine.\"",
+      "attachment": "Initial_Lab_Results.pdf",
+      "lastUpdate": "Yesterday, 04:30 PM",
+      "clinic": "Metro Health Cardiology",
+      "address": "122 Medical Plaza, Ste 400",
+      "phone": "(555) 010-8892",
+      "email": "referrals@metrocardio.org"
+    }
+  },
+  "familyAccess": {
+    "proxies": [
+      {
+        "id": "proxy-sarah",
+        "name": "Sarah Johnson",
+        "relationship": "Spouse",
+        "permissions": "Full Access",
+        "status": "Active"
+      },
+      {
+        "id": "proxy-michael",
+        "name": "Michael Johnson",
+        "relationship": "Adult Child",
+        "permissions": "View Only",
+        "status": "Active"
+      },
+      {
+        "id": "proxy-david",
+        "name": "David Reed",
+        "relationship": "Legal Proxy",
+        "permissions": "Awaiting Acceptance",
+        "status": "Invitation Pending"
+      }
+    ],
+    "accounts": [
+      {
+        "id": "acct-emma",
+        "name": "Emma Johnson",
+        "detail": "Minor Child - Last Visit: Oct 12",
+        "access": "Full Access"
+      },
+      {
+        "id": "acct-robert",
+        "name": "Robert Smith",
+        "detail": "Elderly Parent - Last Visit: Nov 05",
+        "access": "View Only"
+      }
+    ],
+    "activity": [
+      {
+        "id": "access-sarah",
+        "title": "Sarah Johnson logged in",
+        "detail": "Today, 09:12 AM - Viewed Lab Results",
+        "tone": "success"
+      },
+      {
+        "id": "access-rx",
+        "title": "New prescription view",
+        "detail": "Oct 24, 02:45 PM - Emma Johnson's Profile",
+        "tone": "info"
+      },
+      {
+        "id": "access-revoked",
+        "title": "Access updated",
+        "detail": "Oct 20, 11:00 AM - Revoked 'Billing' for Michael J.",
+        "tone": "neutral"
+      }
+    ],
+    "reports": []
+  },
+  "resourceInteractions": [
+    {
+      "id": "resource-action-ee2ab54e-e3f9-4fa6-8714-582eafc7f89c",
+      "resourceId": "resource-hypertension-guide",
+      "resourceTitle": "Managing Hypertension: A Comprehensive Daily Guide",
+      "action": "Read",
+      "createdAt": "2026-06-23T17:52:37.694Z"
+    }
+  ],
+  "uploadedFiles": [
+    {
+      "id": "file-d854e1f6-7e09-4e55-80e7-41abbf800784",
+      "fileName": "health-records-upload-2026-07-01.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-07-01T17:51:25.108Z"
+    },
+    {
+      "id": "file-2d87f70a-a1fb-4420-87ce-8ce45bfa16aa",
+      "fileName": "health-records-upload-2026-07-01.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-07-01T17:51:24.941Z"
+    },
+    {
+      "id": "file-99808349-df5f-48f4-b05a-83e7494b248c",
+      "fileName": "health-records-upload-2026-07-01.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-07-01T17:51:24.676Z"
+    },
+    {
+      "id": "file-ffe9df20-4123-47e9-b866-74b47185984c",
+      "fileName": "health-records-upload-2026-07-01.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-07-01T17:51:23.859Z"
+    },
+    {
+      "id": "file-03c259f5-9123-46f6-b727-2c9b8252824c",
+      "fileName": "immunization-record-2026-07-01.pdf",
+      "category": "Immunization record",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-07-01T17:50:56.607Z"
+    },
+    {
+      "id": "file-d525ba0a-3496-4252-ad72-4c31ca2e3bf6",
+      "fileName": "immunization-record-2026-07-01.pdf",
+      "category": "Immunization record",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-07-01T17:50:56.043Z"
+    },
+    {
+      "id": "file-437a2c7b-7474-4ab7-9c80-4b260440dcb9",
+      "fileName": "health-records-upload-2026-06-24.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-06-24T05:52:53.823Z"
+    },
+    {
+      "id": "file-ee361855-4686-4464-84a4-f40ab813f615",
+      "fileName": "health-records-upload-2026-06-24.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-06-24T05:52:53.508Z"
+    },
+    {
+      "id": "file-d0837442-12dd-49b8-8852-7e2d813d36ff",
+      "fileName": "health-records-upload-2026-06-24.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-06-24T05:52:53.134Z"
+    },
+    {
+      "id": "file-5f3a91eb-b80a-4971-9f06-11992bf33926",
+      "fileName": "health-records-upload-2026-06-24.pdf",
+      "category": "Health records upload",
+      "size": "256 KB",
+      "source": "patient portal",
+      "relatedId": null,
+      "uploadedAt": "2026-06-24T05:52:52.160Z"
+    },
+    {
+      "id": "file-a57f29cd-4798-4844-9f5b-edbc2bced8f8",
+      "fileName": "secure-message-attachment-2026-06-23.pdf",
+      "category": "Secure message attachment",
+      "size": "128 KB",
+      "source": "patient portal",
+      "relatedId": "conv-nursing-team",
+      "uploadedAt": "2026-06-23T17:52:22.917Z"
+    },
+    {
+      "id": "file-diet-guide",
+      "fileName": "Dietary_Guidelines_Lipid_Control.pdf",
+      "category": "Message attachment",
+      "size": "2.4 MB",
+      "source": "seed",
+      "relatedId": "conv-sarah-jenkins",
+      "uploadedAt": "2024-10-14T10:24:00.000Z"
+    }
+  ],
+  "activityLog": [
+    {
+      "id": "activity-1ca62a89-ccf5-4106-b425-c7db190ae5cf",
+      "type": "appointment",
+      "title": "Appointment requested",
+      "detail": "Cardiology follow-up with Dr. Michael Chen on Nov 08, 2023 at 10:30 AM",
+      "createdAt": "2026-07-01T17:51:35.796Z"
+    },
+    {
+      "id": "activity-033f9ea7-d004-4d2a-9363-69ae69f748e8",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-07-01.pdf (Health records upload)",
+      "createdAt": "2026-07-01T17:51:25.108Z"
+    },
+    {
+      "id": "activity-4991b886-9248-48cc-979c-1ed87f7128ec",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-07-01.pdf (Health records upload)",
+      "createdAt": "2026-07-01T17:51:24.941Z"
+    },
+    {
+      "id": "activity-811b11bc-b4bd-43d5-a320-4accce76b9bf",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-07-01.pdf (Health records upload)",
+      "createdAt": "2026-07-01T17:51:24.676Z"
+    },
+    {
+      "id": "activity-b31b6447-279f-430c-bcee-4676680336b0",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-07-01.pdf (Health records upload)",
+      "createdAt": "2026-07-01T17:51:23.859Z"
+    },
+    {
+      "id": "activity-eaced992-a4b0-4da1-9e0f-194fded13a8e",
+      "type": "record",
+      "title": "Patient note added",
+      "detail": "Hi",
+      "createdAt": "2026-07-01T17:51:18.978Z"
+    },
+    {
+      "id": "activity-bfbbcac0-4ec9-4865-b730-9d825c46ff09",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "immunization-record-2026-07-01.pdf (Immunization record)",
+      "createdAt": "2026-07-01T17:50:56.607Z"
+    },
+    {
+      "id": "activity-023b929b-9824-475f-8d0d-89393409c51f",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "immunization-record-2026-07-01.pdf (Immunization record)",
+      "createdAt": "2026-07-01T17:50:56.043Z"
+    },
+    {
+      "id": "activity-e0402863-890b-4371-9dfa-6e9bd031a155",
+      "type": "appointment",
+      "title": "Appointment requested",
+      "detail": "Cardiology follow-up with Dr. Michael Chen on Nov 08, 2023 at 10:30 AM",
+      "createdAt": "2026-06-24T05:54:49.190Z"
+    },
+    {
+      "id": "activity-19956378-6f3c-492b-b82c-12ee8868b2a7",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-06-24.pdf (Health records upload)",
+      "createdAt": "2026-06-24T05:52:53.823Z"
+    },
+    {
+      "id": "activity-ee2b304f-4a61-483c-a3a4-b554341802f5",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-06-24.pdf (Health records upload)",
+      "createdAt": "2026-06-24T05:52:53.508Z"
+    },
+    {
+      "id": "activity-1c7c2bdf-0281-4f81-a9b4-28abd1e651ff",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-06-24.pdf (Health records upload)",
+      "createdAt": "2026-06-24T05:52:53.134Z"
+    },
+    {
+      "id": "activity-ffd18871-9c05-41f5-822b-674565939946",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "health-records-upload-2026-06-24.pdf (Health records upload)",
+      "createdAt": "2026-06-24T05:52:52.160Z"
+    },
+    {
+      "id": "activity-1feb46b5-91b2-4b0a-85d6-dad5def845f6",
+      "type": "file",
+      "title": "File metadata uploaded",
+      "detail": "secure-message-attachment-2026-06-23.pdf (Secure message attachment)",
+      "createdAt": "2026-06-23T17:52:22.917Z"
+    }
+  ],
+  "healthTrends": {
+    "summary": {
+      "withinRange": 2,
+      "attentionRequired": 1,
+      "updates": [
+        "Vitals updated today",
+        "Labs 2 days ago",
+        "Rx adherence: High",
+        "HR Variability: Normal"
+      ]
+    },
+    "metrics": [
+      {
+        "id": "trend-bp",
+        "label": "Blood Pressure",
+        "status": "Elevated",
+        "latest": "138/88",
+        "unit": "mmHg",
+        "averageLabel": "Avg",
+        "average": "132/84",
+        "points": [
+          74,
+          62,
+          69,
+          58,
+          52
+        ]
+      },
+      {
+        "id": "trend-hr",
+        "label": "Heart Rate",
+        "status": "Stable",
+        "latest": "72",
+        "unit": "BPM",
+        "averageLabel": "Resting Avg",
+        "average": "70",
+        "points": [
+          60,
+          64,
+          61,
+          63,
+          62
+        ]
+      },
+      {
+        "id": "trend-weight",
+        "label": "Weight",
+        "status": "Decreasing",
+        "latest": "84.2",
+        "unit": "kg",
+        "averageLabel": "Baseline",
+        "average": "91.0",
+        "points": [
+          40,
+          46,
+          53,
+          61,
+          70
+        ]
+      }
+    ],
+    "labComparison": [
+      {
+        "parameter": "HbA1c (%)",
+        "baseline": "6.8",
+        "current": "6.1",
+        "change": "-0.7 down",
+        "status": "Normal"
+      },
+      {
+        "parameter": "Creatinine (mg/dL)",
+        "baseline": "1.1",
+        "current": "1.2",
+        "change": "+0.1 up",
+        "status": "Normal"
+      },
+      {
+        "parameter": "LDL Cholesterol (mg/dL)",
+        "baseline": "142",
+        "current": "128",
+        "change": "-14 down",
+        "status": "Elevated"
+      },
+      {
+        "parameter": "ALT (U/L)",
+        "baseline": "22",
+        "current": "46",
+        "change": "+24 up",
+        "status": "Attention"
+      }
+    ],
+    "goals": [
+      {
+        "id": "goal-weight",
+        "label": "Weight Loss Target (82kg)",
+        "progress": 75
+      },
+      {
+        "id": "goal-ldl",
+        "label": "LDL Target (<100mg/dL)",
+        "progress": 40
+      }
+    ]
+  },
   "messages": [
+    {
+      "id": "thread-msg-f67c5c0c-7892-49c0-9617-b3cb11c318de",
+      "from": "You",
+      "subject": "Prescription Refill Request",
+      "preview": "Attached secure-message-attachment-2026-06-23.pdf.",
+      "time": "Just now",
+      "outbound": true,
+      "conversationId": "conv-nursing-team"
+    },
+    {
+      "id": "thread-msg-2d75b440-02a7-4b1d-881e-59029f0b5c60",
+      "from": "You",
+      "subject": "Follow-up: Surgery Prep",
+      "preview": "hell",
+      "time": "Just now",
+      "outbound": true,
+      "conversationId": "conv-michael-chen"
+    },
     {
       "id": "msg-1",
       "from": "Dr. Sarah Jenkins",
@@ -425,9 +1338,9 @@
       "participantRole": "Care Coordination",
       "activeNow": false,
       "subject": "Prescription Refill Request",
-      "preview": "Your request for Lipitor has been sent to the pharmacy team.",
-      "time": "Yesterday",
-      "unread": true,
+      "preview": "Attached secure-message-attachment-2026-06-23.pdf.",
+      "time": "Just now",
+      "unread": false,
       "resolved": false,
       "messages": [
         {
@@ -436,8 +1349,21 @@
           "body": "Your request for Lipitor has been sent to the pharmacy team. We will notify you when the refill is approved.",
           "sentAtLabel": "Yesterday",
           "createdAt": "2024-10-13T14:18:00.000Z"
+        },
+        {
+          "id": "thread-msg-f67c5c0c-7892-49c0-9617-b3cb11c318de",
+          "direction": "outbound",
+          "body": "Attached secure-message-attachment-2026-06-23.pdf.",
+          "sentAtLabel": "Just now",
+          "createdAt": "2026-06-23T17:52:22.926Z",
+          "read": false,
+          "attachment": {
+            "fileName": "secure-message-attachment-2026-06-23.pdf",
+            "size": "128 KB"
+          }
         }
-      ]
+      ],
+      "updatedAt": "2026-06-23T17:52:22.926Z"
     },
     {
       "id": "conv-michael-chen",
@@ -445,10 +1371,10 @@
       "participantRole": "Surgery",
       "activeNow": false,
       "subject": "Follow-up: Surgery Prep",
-      "preview": "Please remember to fast for 12 hours prior to your appointment.",
-      "time": "Oct 12",
+      "preview": "hell",
+      "time": "Just now",
       "unread": false,
-      "resolved": true,
+      "resolved": false,
       "messages": [
         {
           "id": "thread-msg-4",
@@ -456,8 +1382,17 @@
           "body": "Please remember to fast for 12 hours prior to your appointment and bring your medication list.",
           "sentAtLabel": "Oct 12",
           "createdAt": "2024-10-12T08:30:00.000Z"
+        },
+        {
+          "id": "thread-msg-2d75b440-02a7-4b1d-881e-59029f0b5c60",
+          "direction": "outbound",
+          "body": "hell",
+          "sentAtLabel": "Just now",
+          "createdAt": "2026-06-23T09:13:13.439Z",
+          "read": false
         }
-      ]
+      ],
+      "updatedAt": "2026-06-23T09:13:13.439Z"
     },
     {
       "id": "conv-billing",
@@ -495,5 +1430,191 @@
       "updated": "May 27, 2026",
       "status": "New"
     }
-  ]
+  ],
+  "accessControl": {
+    "roles": [
+      {
+        "id": "admin",
+        "label": "Administrator",
+        "description": "Full platform administrator with access-control, user, and audit authority.",
+        "permissions": [
+          "dashboard.view",
+          "records.view",
+          "appointments.view",
+          "appointments.request",
+          "appointments.manage",
+          "messages.view",
+          "messages.send",
+          "messages.resolve",
+          "prescriptions.view",
+          "prescriptions.refill",
+          "prescriptions.request",
+          "prescriptions.pharmacy.manage",
+          "billing.view",
+          "billing.pay",
+          "billing.paymentMethods.manage",
+          "profile.view",
+          "profile.update",
+          "profile.insurance.manage",
+          "profile.emergencyContacts.manage",
+          "tasks.manage",
+          "preferences.manage",
+          "referrals.view",
+          "referrals.manage",
+          "immunizations.view",
+          "trends.view",
+          "resources.view",
+          "family.view",
+          "family.manage",
+          "admin.access.view",
+          "admin.access.manage",
+          "admin.users.manage"
+        ],
+        "system": true
+      },
+      {
+        "id": "doctor",
+        "label": "Doctor",
+        "description": "Clinical provider access for records, appointments, messages, prescriptions, referrals, and trends.",
+        "permissions": [
+          "dashboard.view",
+          "records.view",
+          "appointments.view",
+          "appointments.manage",
+          "messages.view",
+          "messages.send",
+          "messages.resolve",
+          "prescriptions.view",
+          "prescriptions.refill",
+          "prescriptions.request",
+          "prescriptions.pharmacy.manage",
+          "profile.view",
+          "referrals.view",
+          "referrals.manage",
+          "immunizations.view",
+          "trends.view",
+          "resources.view",
+          "tasks.manage"
+        ],
+        "system": true
+      },
+      {
+        "id": "nurse",
+        "label": "Nurse / Care Coordinator",
+        "description": "Care-team workflow access for appointments, secure messaging, records, tasks, and immunizations.",
+        "permissions": [
+          "dashboard.view",
+          "records.view",
+          "appointments.view",
+          "appointments.request",
+          "appointments.manage",
+          "messages.view",
+          "messages.send",
+          "messages.resolve",
+          "prescriptions.view",
+          "prescriptions.refill",
+          "profile.view",
+          "referrals.view",
+          "immunizations.view",
+          "trends.view",
+          "resources.view",
+          "tasks.manage"
+        ],
+        "system": true
+      },
+      {
+        "id": "front-desk",
+        "label": "Front Desk / Scheduler",
+        "description": "Scheduling and registration access without clinical record editing or billing payment authority.",
+        "permissions": [
+          "dashboard.view",
+          "appointments.view",
+          "appointments.request",
+          "appointments.manage",
+          "messages.view",
+          "messages.send",
+          "profile.view",
+          "referrals.view",
+          "resources.view"
+        ],
+        "system": true
+      },
+      {
+        "id": "billing-specialist",
+        "label": "Billing Specialist",
+        "description": "Revenue-cycle access for billing, statements, insurance, and payment support.",
+        "permissions": [
+          "dashboard.view",
+          "billing.view",
+          "billing.pay",
+          "billing.paymentMethods.manage",
+          "profile.view",
+          "profile.insurance.manage",
+          "messages.view",
+          "messages.send",
+          "resources.view"
+        ],
+        "system": true
+      },
+      {
+        "id": "patient",
+        "label": "Patient / Normal User",
+        "description": "Standard patient portal access for personal records, visits, messages, prescriptions, billing, and family access.",
+        "permissions": [
+          "dashboard.view",
+          "records.view",
+          "appointments.view",
+          "appointments.request",
+          "appointments.manage",
+          "messages.view",
+          "messages.send",
+          "messages.resolve",
+          "prescriptions.view",
+          "prescriptions.refill",
+          "prescriptions.request",
+          "prescriptions.pharmacy.manage",
+          "billing.view",
+          "billing.pay",
+          "billing.paymentMethods.manage",
+          "profile.view",
+          "profile.update",
+          "profile.insurance.manage",
+          "profile.emergencyContacts.manage",
+          "tasks.manage",
+          "preferences.manage",
+          "referrals.view",
+          "referrals.manage",
+          "immunizations.view",
+          "trends.view",
+          "resources.view",
+          "family.view",
+          "family.manage"
+        ],
+        "system": true
+      },
+      {
+        "id": "proxy",
+        "label": "Family Proxy / Caregiver",
+        "description": "Delegated family access for care support, appointment requests, messages, billing, and education.",
+        "permissions": [
+          "dashboard.view",
+          "records.view",
+          "appointments.view",
+          "appointments.request",
+          "messages.view",
+          "messages.send",
+          "prescriptions.view",
+          "prescriptions.refill",
+          "billing.view",
+          "billing.pay",
+          "resources.view",
+          "family.view",
+          "immunizations.view",
+          "trends.view"
+        ],
+        "system": true
+      }
+    ],
+    "auditLog": []
+  }
 }

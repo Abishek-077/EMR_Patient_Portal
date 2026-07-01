@@ -1,6 +1,6 @@
 import { forbidden, unauthorized } from '../errors.js';
 import { hasPermission } from '../domain/access-control.js';
-import { findSessionUser } from '../services/auth.service.js';
+import { findSessionUser } from '../features/auth/auth.service.js';
 
 export async function requireAuth(request, _response, next) {
   try {

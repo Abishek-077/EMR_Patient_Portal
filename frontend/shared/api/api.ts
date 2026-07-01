@@ -7,18 +7,28 @@ import type {
   BillingData,
   BillingPaymentMethod,
   BillingPaymentMethodInput,
+  BillingStatement,
+  ClinicalNote,
+  EmergencyContact,
+  FamilyAccessData,
   MedicationRequest,
   Message,
   MessageConversation,
   PortalData,
+  PreferredPharmacy,
   ProfileSettings,
   RefillRequest,
   Task,
+  UploadedFile,
   VisitRequestInput,
 } from '../types';
 
+export function getStoredAuthToken() {
+  return localStorage.getItem('emr-auth-token') || sessionStorage.getItem('emr-auth-token') || '';
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('emr-auth-token');
+  const token = getStoredAuthToken();
   const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
@@ -129,12 +139,27 @@ export function getAppointments(status: 'upcoming' | 'past' | 'cancelled', provi
   return request<AppointmentList>(`/api/appointments?${params.toString()}`);
 }
 
+export function getAppointmentDetail(appointmentId: string) {
+  return request<unknown>(`/api/appointments/${encodeURIComponent(appointmentId)}`);
+}
+
+export function getAppointmentsExport(status: 'upcoming' | 'past' | 'cancelled', provider = '') {
+  const params = new URLSearchParams({ status });
+  if (provider.trim()) params.set('provider', provider.trim());
+  return request<unknown>(`/api/appointments/export?${params.toString()}`);
+}
+
 export function scheduleAppointment(input: VisitRequestInput) {
   return request<Appointment>('/api/appointments', {
     method: 'POST',
     body: JSON.stringify({
-      service: input.reason,
-      date: input.preferredDate,
+      service: input.service || input.reason,
+      provider: input.provider,
+      department: input.department,
+      date: input.date || input.preferredDate,
+      time: input.time,
+      location: input.location,
+      reason: input.reason,
       notes: input.notes,
     }),
   });
@@ -147,10 +172,18 @@ export function cancelAppointment(appointmentId: string, reason = 'Patient reque
   });
 }
 
-export function rescheduleAppointment(appointmentId: string, date: string, time: string, notes = '') {
+export function rescheduleAppointment(
+  appointmentId: string,
+  input: string | { date: string; time: string; provider?: string; department?: string; notes?: string },
+  time = '',
+  notes = '',
+) {
+  const body = typeof input === 'string'
+    ? { date: input, time, notes }
+    : input;
   return request<Appointment>(`/api/appointments/${appointmentId}/reschedule`, {
     method: 'PATCH',
-    body: JSON.stringify({ date, time, notes }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -165,6 +198,13 @@ export function sendConversationMessage(conversationId: string, body: string) {
   return request<{ message: unknown; conversation: MessageConversation }>(`/api/messages/conversations/${conversationId}/messages`, {
     method: 'POST',
     body: JSON.stringify({ body }),
+  });
+}
+
+export function sendConversationAttachment(conversationId: string, body: string, attachment: { fileName: string; size: string }) {
+  return request<{ message: unknown; conversation: MessageConversation }>(`/api/messages/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ body, attachment }),
   });
 }
 
@@ -185,6 +225,28 @@ export function requestNewMedication(medicationName: string, notes: string) {
   return request<MedicationRequest>('/api/prescriptions/medication-requests', {
     method: 'POST',
     body: JSON.stringify({ medicationName, notes }),
+  });
+}
+
+export function updatePreferredPharmacy(input: Omit<PreferredPharmacy, 'id' | 'isPreferred' | 'updatedAt'>) {
+  return request<PreferredPharmacy>('/api/prescriptions/preferred-pharmacy', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getPrintablePrescriptions() {
+  return request<unknown>('/api/prescriptions/printable');
+}
+
+export function getMedicationLeaflet(prescriptionId: string) {
+  return request<unknown>(`/api/prescriptions/${encodeURIComponent(prescriptionId)}/leaflet`);
+}
+
+export function checkDrugInteractions(medicationName: string) {
+  return request<unknown>('/api/prescriptions/interactions', {
+    method: 'POST',
+    body: JSON.stringify({ medicationName }),
   });
 }
 
@@ -220,9 +282,177 @@ export function addBillingPaymentMethod(input: BillingPaymentMethodInput) {
   });
 }
 
+export function getBillingStatement(statementId = '') {
+  return request<BillingStatement>(statementId ? `/api/billing/statements/${statementId}` : '/api/billing/statements');
+}
+
+export function getInvoiceDetail(invoiceId: string) {
+  return request<unknown>(`/api/billing/invoices/${encodeURIComponent(invoiceId)}`);
+}
+
+export function getBillingResource(resourceId: string) {
+  return request<unknown>(`/api/billing/resources/${encodeURIComponent(resourceId)}`);
+}
+
+export function createPaymentSession(invoiceId?: string) {
+  return request<unknown>('/api/billing/payment-sessions', {
+    method: 'POST',
+    body: JSON.stringify({ invoiceId }),
+  });
+}
+
 export function saveProfileSettings(profile: ProfileSettings) {
   return request<ProfileSettings>('/api/profile', {
     method: 'PATCH',
     body: JSON.stringify(profile),
+  });
+}
+
+export function updateInsuranceDetails(input: PortalData['insuranceDetails']) {
+  return request<PortalData['insuranceDetails']>('/api/profile/insurance', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function addEmergencyContact(input: Omit<EmergencyContact, 'id'>) {
+  return request<EmergencyContact>('/api/profile/emergency-contacts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateEmergencyContact(contactId: string, input: Omit<EmergencyContact, 'id'>) {
+  return request<EmergencyContact>(`/api/profile/emergency-contacts/${contactId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteEmergencyContact(contactId: string) {
+  return request<EmergencyContact>(`/api/profile/emergency-contacts/${contactId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function addPatientNote(input: { title: string; text: string; type?: string }) {
+  return request<ClinicalNote>('/api/records/notes', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getLabDetail(labId: string) {
+  return request<unknown>(`/api/records/labs/${encodeURIComponent(labId)}`);
+}
+
+export function getDocumentDetail(documentId: string) {
+  return request<unknown>(`/api/records/documents/${encodeURIComponent(documentId)}`);
+}
+
+export function getPrintableRecord() {
+  return request<unknown>('/api/records/printable');
+}
+
+export function getTrendsExport(range = '12m') {
+  return request<unknown>(`/api/trends/export?range=${encodeURIComponent(range)}`);
+}
+
+export function requestReferral(input: { provider?: string; specialty: string; reason: string; clinic?: string }) {
+  return request<PortalData['referrals']['rows'][number]>('/api/referrals', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateReferralAction(referralId: string, action: string, note = '') {
+  return request<PortalData['referrals']['rows'][number]>(`/api/referrals/${referralId}/action`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action, note }),
+  });
+}
+
+export function getReferralExport() {
+  return request<unknown>('/api/referrals/export');
+}
+
+export function getReferralDetail(referralId: string) {
+  return request<unknown>(`/api/referrals/${encodeURIComponent(referralId)}`);
+}
+
+export function inviteProxy(input: { name: string; relationship: string; permissions: string }) {
+  return request<FamilyAccessData['proxies'][number]>('/api/family/proxies', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateProxyPermissions(proxyId: string, permissions: string) {
+  return request<FamilyAccessData['proxies'][number]>(`/api/family/proxies/${proxyId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions }),
+  });
+}
+
+export function resendProxyInvite(proxyId: string) {
+  return request<FamilyAccessData['proxies'][number]>(`/api/family/proxies/${proxyId}/resend`, {
+    method: 'POST',
+  });
+}
+
+export function revokeProxy(proxyId: string) {
+  return request<FamilyAccessData['proxies'][number]>(`/api/family/proxies/${proxyId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function addDependent(input: { name: string; relationship: string; detail?: string; access?: string }) {
+  return request<FamilyAccessData['accounts'][number]>('/api/family/dependents', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateFamilyPrivacy(input: { shareRecords?: boolean; mentalHealthNotes?: boolean }) {
+  return request<PortalData['preferences']>('/api/family/privacy', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function reportUnauthorizedAccess(input: { summary: string; contactPreference?: string }) {
+  return request<{ id: string; status: string }>('/api/family/reports', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getAccessPolicy() {
+  return request<unknown>('/api/family/policy');
+}
+
+export function recordResourceInteraction(resourceId: string, action: string) {
+  return request<PortalData['resourceInteractions'][number]>(`/api/resources/${encodeURIComponent(resourceId)}/interactions`, {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  });
+}
+
+export function getResourceDetail(resourceId: string) {
+  return request<unknown>(`/api/resources/${encodeURIComponent(resourceId)}`);
+}
+
+export function getPrintableImmunizations() {
+  return request<unknown>('/api/immunizations/printable');
+}
+
+export function getImmunizationDetail(recordId: string) {
+  return request<unknown>(`/api/immunizations/${encodeURIComponent(recordId)}`);
+}
+
+export function uploadFileMetadata(input: { fileName: string; category: string; size?: string; source?: string; relatedId?: string }) {
+  return request<UploadedFile>('/api/files', {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }

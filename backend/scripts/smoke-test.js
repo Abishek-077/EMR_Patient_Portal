@@ -147,6 +147,55 @@ try {
   assert(!('sessions' in portal.body), 'portal response must not expose sessions');
   assert(Array.isArray(portal.body.messageConversations), 'portal should include Sprint 3 conversations');
 
+  const records = await json('/api/records?query=glucose&type=all', { method: 'GET', token: login.body.token });
+  assert(records.status === 200, 'records list should return 200');
+  assert(records.body.labResults.some((lab) => lab.label === 'Glucose, Fasting'), 'records list should filter labs');
+
+  const patientNote = await json('/api/records/notes', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      title: 'Smoke test patient note',
+      text: 'Patient-entered note from smoke coverage.',
+      type: 'Patient Note',
+    },
+  });
+  assert(patientNote.status === 201, 'patient note create should return 201');
+  assert(patientNote.body.title === 'Smoke test patient note', 'patient note should persist title');
+
+  const labDetail = await json('/api/records/labs/glucose-fasting', { method: 'GET', token: login.body.token });
+  assert(labDetail.status === 200, 'lab detail should return 200');
+  assert(labDetail.body.narrative.includes('Glucose'), 'lab detail should include narrative');
+
+  const documentDetail = await json('/api/records/documents/doc-1', { method: 'GET', token: login.body.token });
+  assert(documentDetail.status === 200, 'document detail should return 200');
+  assert(documentDetail.body.document.id === 'doc-1', 'document detail should include document');
+
+  const printableRecord = await json('/api/records/printable', { method: 'GET', token: login.body.token });
+  assert(printableRecord.status === 200, 'printable records payload should return 200');
+  assert(Array.isArray(printableRecord.body.clinicalNotes), 'printable records should include notes');
+
+  const trends = await json('/api/trends?range=6m', { method: 'GET', token: login.body.token });
+  assert(trends.status === 200, 'trends should return 200');
+  assert(trends.body.selectedRange === '6m', 'trends should echo selected range');
+
+  const trendsExport = await json('/api/trends/export?range=3m', { method: 'GET', token: login.body.token });
+  assert(trendsExport.status === 200, 'trends export should return 200');
+  assert(trendsExport.body.printable === true, 'trends export should be printable');
+
+  const upload = await json('/api/files', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      fileName: 'smoke-upload.pdf',
+      category: 'Health records upload',
+      size: '42 KB',
+      source: 'smoke-test',
+    },
+  });
+  assert(upload.status === 201, 'file metadata upload should return 201');
+  assert(upload.body.fileName === 'smoke-upload.pdf', 'file metadata should persist file name');
+
   const conversations = await json('/api/messages/conversations', { method: 'GET', token: login.body.token });
   assert(conversations.status === 200, 'conversation list should return 200');
   assert(conversations.body.conversations.length >= 1, 'conversation list should include seeded conversations');
@@ -164,6 +213,20 @@ try {
   assert(reply.status === 201, 'conversation reply should return 201');
   assert(reply.body.conversation.messages.at(-1).body.includes('updated care plan'), 'conversation reply should append message');
 
+  const attachmentReply = await json(`/api/messages/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      body: 'Attached file metadata for review.',
+      attachment: {
+        fileName: 'home-blood-pressure-log.pdf',
+        size: '96 KB',
+      },
+    },
+  });
+  assert(attachmentReply.status === 201, 'conversation attachment reply should return 201');
+  assert(attachmentReply.body.conversation.messages.at(-1).attachment.fileName === 'home-blood-pressure-log.pdf', 'attachment metadata should append to thread');
+
   const resolved = await json(`/api/messages/conversations/${conversationId}/resolve`, {
     method: 'PATCH',
     token: login.body.token,
@@ -176,25 +239,41 @@ try {
   assert(appointmentList.status === 200, 'appointment list should return 200');
   assert(appointmentList.body.appointments.length >= 1, 'appointment list should include seeded appointments');
 
+  const appointmentsExport = await json('/api/appointments/export?status=upcoming', { method: 'GET', token: login.body.token });
+  assert(appointmentsExport.status === 200, 'appointments export should return 200');
+  assert(Array.isArray(appointmentsExport.body.appointments), 'appointments export should include appointments');
+
   const scheduled = await json('/api/appointments', {
     method: 'POST',
     token: login.body.token,
     body: {
       service: 'Follow-up lab review',
       clinician: 'Dr. Sarah Jenkins',
+      provider: 'Dr. Sarah Jenkins',
       date: 'Dec 05, 2023',
       time: '10:00 AM (Tuesday)',
       department: 'Cardiology',
       location: 'Main Clinic, Suite 402',
+      reason: 'Follow-up lab review',
     },
   });
   assert(scheduled.status === 201, 'schedule appointment should return 201');
   assert(scheduled.body.status === 'Pending', 'scheduled appointment should be pending');
 
+  const appointmentDetail = await json(`/api/appointments/${scheduled.body.id}`, { method: 'GET', token: login.body.token });
+  assert(appointmentDetail.status === 200, 'appointment detail should return 200');
+  assert(appointmentDetail.body.appointment.id === scheduled.body.id, 'appointment detail should include appointment');
+
   const rescheduled = await json(`/api/appointments/${scheduled.body.id}/reschedule`, {
     method: 'PATCH',
     token: login.body.token,
-    body: { date: 'Dec 08, 2023', time: '11:30 AM (Friday)' },
+    body: {
+      date: 'Dec 08, 2023',
+      time: '11:30 AM (Friday)',
+      provider: 'Dr. Michael Chen',
+      department: 'Cardiology',
+      notes: 'Smoke test reschedule',
+    },
   });
   assert(rescheduled.status === 200, 'reschedule appointment should return 200');
   assert(rescheduled.body.date === 'Dec 08, 2023', 'rescheduled appointment should update date');
@@ -207,10 +286,175 @@ try {
   assert(cancelled.status === 200, 'cancel appointment should return 200');
   assert(cancelled.body.status === 'Cancelled', 'cancelled appointment should update status');
 
+  const referrals = await json('/api/referrals', { method: 'GET', token: login.body.token });
+  assert(referrals.status === 200, 'referrals list should return 200');
+  assert(referrals.body.rows.length >= 1, 'referrals should include seeded rows');
+
+  const referralRequest = await json('/api/referrals', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      provider: 'Care Team',
+      specialty: 'Physical Therapy',
+      reason: 'Smoke test mobility referral',
+      clinic: 'Metro Rehab Clinic',
+    },
+  });
+  assert(referralRequest.status === 201, 'referral request should return 201');
+  assert(referralRequest.body.status === 'Pending', 'referral request should be pending');
+
+  const referralAction = await json(`/api/referrals/${referralRequest.body.id}/action`, {
+    method: 'PATCH',
+    token: login.body.token,
+    body: {
+      action: 'View Calendar',
+      note: 'Smoke test referral action',
+    },
+  });
+  assert(referralAction.status === 200, 'referral action should return 200');
+  assert(referralAction.body.status === 'Scheduled', 'calendar action should mark referral scheduled');
+
+  const referralDetail = await json(`/api/referrals/${referralRequest.body.id}`, { method: 'GET', token: login.body.token });
+  assert(referralDetail.status === 200, 'referral detail should return 200');
+  assert(referralDetail.body.referral.id === referralRequest.body.id, 'referral detail should include referral');
+
+  const referralExport = await json('/api/referrals/export', { method: 'GET', token: login.body.token });
+  assert(referralExport.status === 200, 'referral export should return 200');
+  assert(Array.isArray(referralExport.body.referrals), 'referral export should include referrals');
+
+  const resources = await json('/api/resources?query=lab&format=Article', { method: 'GET', token: login.body.token });
+  assert(resources.status === 200, 'resources list should return 200');
+  assert(resources.body.library.some((resource) => resource.id === 'lib-cbc'), 'resources list should filter library');
+
+  const resourceDetail = await json('/api/resources/lib-cbc', { method: 'GET', token: login.body.token });
+  assert(resourceDetail.status === 200, 'resource detail should return 200');
+  assert(resourceDetail.body.body.includes('Understanding Lab Results'), 'resource detail should include body');
+
+  const resourceInteraction = await json('/api/resources/lib-cbc/interactions', {
+    method: 'POST',
+    token: login.body.token,
+    body: { action: 'Save' },
+  });
+  assert(resourceInteraction.status === 201, 'resource interaction should return 201');
+  assert(resourceInteraction.body.action === 'Save', 'resource interaction should persist action');
+
+  const groupedResourceDetail = await json('/api/resources/condition-guides-0', { method: 'GET', token: login.body.token });
+  assert(groupedResourceDetail.status === 200, 'grouped resource detail should return 200');
+  assert(groupedResourceDetail.body.title === 'Type 2 Diabetes Basics', 'grouped resource detail should resolve generated id');
+
+  const groupedResourceInteraction = await json('/api/resources/condition-guides-0/interactions', {
+    method: 'POST',
+    token: login.body.token,
+    body: { action: 'Read Article' },
+  });
+  assert(groupedResourceInteraction.status === 201, 'grouped resource interaction should return 201');
+  assert(groupedResourceInteraction.body.resourceTitle === 'Type 2 Diabetes Basics', 'grouped interaction should persist resource title');
+
+  const immunizations = await json('/api/immunizations', { method: 'GET', token: login.body.token });
+  assert(immunizations.status === 200, 'immunizations list should return 200');
+  assert(immunizations.body.summary.completed >= 1, 'immunizations list should include completed summary');
+
+  const immunizationDetail = await json('/api/immunizations/imm-covid-3', { method: 'GET', token: login.body.token });
+  assert(immunizationDetail.status === 200, 'immunization detail should return 200');
+  assert(immunizationDetail.body.record.id === 'imm-covid-3', 'immunization detail should include record');
+
+  const immunizationPrintable = await json('/api/immunizations/printable', { method: 'GET', token: login.body.token });
+  assert(immunizationPrintable.status === 200, 'printable immunization record should return 200');
+  assert(immunizationPrintable.body.printable === true, 'printable immunization record should be printable');
+
+  const family = await json('/api/family', { method: 'GET', token: login.body.token });
+  assert(family.status === 200, 'family access should return 200');
+  assert(Array.isArray(family.body.familyAccess.proxies), 'family access should include proxies');
+
+  const proxy = await json('/api/family/proxies', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      name: 'Smoke Proxy',
+      relationship: 'Sibling',
+      permissions: 'View Only',
+    },
+  });
+  assert(proxy.status === 201, 'proxy invite should return 201');
+
+  const proxyPermissions = await json(`/api/family/proxies/${proxy.body.id}`, {
+    method: 'PATCH',
+    token: login.body.token,
+    body: { permissions: 'Billing Only' },
+  });
+  assert(proxyPermissions.status === 200, 'proxy permission update should return 200');
+  assert(proxyPermissions.body.permissions === 'Billing Only', 'proxy permission should update');
+
+  const resentProxy = await json(`/api/family/proxies/${proxy.body.id}/resend`, {
+    method: 'POST',
+    token: login.body.token,
+  });
+  assert(resentProxy.status === 200, 'proxy resend should return 200');
+
+  const dependent = await json('/api/family/dependents', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      name: 'Smoke Dependent',
+      relationship: 'Child',
+      detail: 'Last Visit: Pending',
+      access: 'View Only',
+    },
+  });
+  assert(dependent.status === 201, 'dependent add should return 201');
+
+  const privacy = await json('/api/family/privacy', {
+    method: 'PATCH',
+    token: login.body.token,
+    body: {
+      shareRecords: false,
+      mentalHealthNotes: true,
+    },
+  });
+  assert(privacy.status === 200, 'family privacy update should return 200');
+  assert(privacy.body.shareRecords === false && privacy.body.mentalHealthNotes === true, 'family privacy should update');
+
+  const accessReport = await json('/api/family/reports', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      summary: 'Smoke test access concern',
+      contactPreference: 'Secure message',
+    },
+  });
+  assert(accessReport.status === 201, 'unauthorized access report should return 201');
+  assert(accessReport.body.status === 'Submitted', 'unauthorized access report should be submitted');
+
+  const accessPolicy = await json('/api/family/policy', { method: 'GET', token: login.body.token });
+  assert(accessPolicy.status === 200, 'family access policy should return 200');
+  assert(accessPolicy.body.title === 'Proxy Access Policy', 'family access policy should include title');
+
+  const revokedProxy = await json(`/api/family/proxies/${proxy.body.id}`, {
+    method: 'DELETE',
+    token: login.body.token,
+  });
+  assert(revokedProxy.status === 200, 'proxy revoke should return 200');
+
   const prescriptions = await json('/api/prescriptions', { method: 'GET', token: login.body.token });
   assert(prescriptions.status === 200, 'prescriptions overview should return 200');
   assert(prescriptions.body.summary.activeMedications >= 1, 'prescriptions should include summary');
   assert(prescriptions.body.preferredPharmacy.name, 'prescriptions should include preferred pharmacy');
+
+  const printablePrescriptions = await json('/api/prescriptions/printable', { method: 'GET', token: login.body.token });
+  assert(printablePrescriptions.status === 200, 'printable prescriptions should return 200');
+  assert(Array.isArray(printablePrescriptions.body.prescriptions), 'printable prescriptions should include prescriptions');
+
+  const leaflet = await json('/api/prescriptions/rx-lisinopril/leaflet', { method: 'GET', token: login.body.token });
+  assert(leaflet.status === 200, 'medication leaflet should return 200');
+  assert(leaflet.body.prescription.id === 'rx-lisinopril', 'medication leaflet should include prescription');
+
+  const interactionCheck = await json('/api/prescriptions/interactions', {
+    method: 'POST',
+    token: login.body.token,
+    body: { medicationName: 'Ibuprofen 200 mg' },
+  });
+  assert(interactionCheck.status === 201, 'interaction check should return 201');
+  assert(interactionCheck.body.medicationName === 'Ibuprofen 200 mg', 'interaction check should include medication');
 
   const refill = await json('/api/prescriptions/rx-lisinopril/refills', {
     method: 'POST',
@@ -263,6 +507,23 @@ try {
 
   const invoiceToPay = billing.body.invoices.find((invoice) => invoice.status === 'Overdue' || invoice.status === 'Pending');
   assert(invoiceToPay, 'billing should include an invoice that can be paid');
+
+  const invoiceDetail = await json(`/api/billing/invoices/${invoiceToPay.id}`, { method: 'GET', token: login.body.token });
+  assert(invoiceDetail.status === 200, 'invoice detail should return 200');
+  assert(invoiceDetail.body.invoice.id === invoiceToPay.id, 'invoice detail should include invoice');
+
+  const billingResource = await json('/api/billing/resources/tax-form-1095-b', { method: 'GET', token: login.body.token });
+  assert(billingResource.status === 200, 'billing resource should return 200');
+  assert(billingResource.body.id === 'tax-form-1095-b', 'billing resource should include resource');
+
+  const paymentSession = await json('/api/billing/payment-sessions', {
+    method: 'POST',
+    token: login.body.token,
+    body: { invoiceId: invoiceToPay.id },
+  });
+  assert(paymentSession.status === 201, 'payment session should return 201');
+  assert(paymentSession.body.invoiceId === invoiceToPay.id, 'payment session should include invoice id');
+
   const invoicePayment = await json('/api/billing/payments', {
     method: 'POST',
     token: login.body.token,

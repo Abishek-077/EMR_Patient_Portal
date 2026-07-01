@@ -14,7 +14,53 @@ export const seedData = {
   },
   preferences: {
     shareRecords: true,
+    mentalHealthNotes: false,
   },
+  providers: [
+    {
+      id: 'provider-sarah-jenkins',
+      name: 'Dr. Sarah Jenkins',
+      department: 'Cardiology',
+      role: 'Cardiologist',
+      location: 'Main Clinic, Suite 402',
+      available: true,
+      preferred: false,
+    },
+    {
+      id: 'provider-michael-chen',
+      name: 'Dr. Michael Chen',
+      department: 'Cardiology',
+      role: 'Cardiologist',
+      location: 'Main Clinic, Suite 402',
+      available: true,
+      preferred: true,
+    },
+    {
+      id: 'provider-james-wilson',
+      name: 'Dr. James Wilson',
+      department: 'Primary Care',
+      role: 'Internal Medicine',
+      location: 'Health Center 1',
+      available: true,
+      preferred: false,
+    },
+    {
+      id: 'provider-emily-chen',
+      name: 'Dr. Emily Chen',
+      department: 'Primary Care',
+      role: 'Family Medicine',
+      location: 'Suite 405',
+      available: true,
+      preferred: false,
+    },
+  ],
+  appointmentSlots: [
+    { id: 'slot-2023-11-07-0915', department: 'Cardiology', date: 'Nov 07, 2023', time: '09:15 AM', status: 'Available' },
+    { id: 'slot-2023-11-08-0800', department: 'Cardiology', date: 'Nov 08, 2023', time: '08:00 AM', status: 'Available' },
+    { id: 'slot-2023-11-08-1030', department: 'Cardiology', date: 'Nov 08, 2023', time: '10:30 AM', status: 'Available' },
+    { id: 'slot-2023-11-08-1145', department: 'Cardiology', date: 'Nov 08, 2023', time: '11:45 AM', status: 'Available' },
+    { id: 'slot-2023-11-09-1415', department: 'Primary Care', date: 'Nov 09, 2023', time: '02:15 PM', status: 'Available' },
+  ],
   tasks: [
     {
       id: 'task-1',
@@ -490,7 +536,21 @@ export const seedData = {
       { id: 'access-rx', title: 'New prescription view', detail: "Oct 24, 02:45 PM - Emma Johnson's Profile", tone: 'info' },
       { id: 'access-revoked', title: 'Access updated', detail: "Oct 20, 11:00 AM - Revoked 'Billing' for Michael J.", tone: 'neutral' },
     ],
+    reports: [],
   },
+  resourceInteractions: [],
+  uploadedFiles: [
+    {
+      id: 'file-diet-guide',
+      fileName: 'Dietary_Guidelines_Lipid_Control.pdf',
+      category: 'Message attachment',
+      size: '2.4 MB',
+      source: 'seed',
+      relatedId: 'conv-sarah-jenkins',
+      uploadedAt: '2024-10-14T10:24:00.000Z',
+    },
+  ],
+  activityLog: [],
   healthTrends: {
     summary: {
       withinRange: 2,

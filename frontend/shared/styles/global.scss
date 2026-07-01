@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
   font-family: 'IBM Plex Sans', Arial, sans-serif;
-  --o3-blue: #003fba;
-  --o3-blue-bright: #0f62fe;
+  --o3-blue: #0043ce;
+  --o3-blue-bright: #0043ce;
   --o3-black: #161616;
   --o3-text: #161616;
   --o3-muted: #525252;
@@ -24,7 +24,10 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
+  border-radius: 0;
   font: inherit;
 }
 
@@ -53,7 +56,7 @@ button {
   height: 52px;
   align-items: center;
   padding: 0 1rem;
-  background: linear-gradient(180deg, #323232, #161616);
+  background: #161616;
   color: #fff;
 }
 
@@ -119,7 +122,7 @@ button {
   display: flex;
   height: 100%;
   align-items: center;
-  margin-left: 0.75rem;
+  margin-left: auto;
 }
 
 .icon-button {
@@ -167,8 +170,9 @@ button {
   display: flex;
   height: calc(100vh - 52px);
   flex-direction: column;
-  border-right: 1px solid var(--o3-border);
-  background: #f4f4f4;
+  border-right: 1px solid #393939;
+  background: #161616;
+  color: #f4f4f4;
 }
 
 .sidebar-profile {
@@ -177,8 +181,8 @@ button {
   align-items: center;
   gap: 0.65rem;
   padding: 0.9rem 1rem;
-  border-bottom: 1px solid var(--o3-border);
-  background: #fff;
+  border-bottom: 1px solid #393939;
+  background: #161616;
 }
 
 .sidebar-avatar {
@@ -216,7 +220,7 @@ button {
 
 .sidebar-profile span {
   margin-top: 0.2rem;
-  color: var(--o3-muted);
+  color: #c6c6c6;
   font-size: 0.76rem;
 }
 
@@ -234,13 +238,14 @@ button {
   padding: 0 1.3rem;
   border: 0;
   background: transparent;
-  color: #374151;
+  color: #c6c6c6;
   text-align: left;
 }
 
 .sidebar-menu button:hover,
 .sidebar-menu button.active {
-  background: #e5e5e5;
+  background: #262626;
+  color: #fff;
 }
 
 .sidebar-menu button.active {
@@ -250,13 +255,13 @@ button {
 
 .sidebar-menu svg,
 .sidebar-footer svg {
-  color: #374151;
+  color: currentColor;
 }
 
 .sidebar-footer {
   margin-top: auto;
   padding: 0.55rem 0;
-  border-top: 1px solid var(--o3-border);
+  border-top: 1px solid #393939;
 }
 
 .portal-main {
@@ -312,6 +317,14 @@ p {
   display: flex;
   gap: 0.55rem;
   flex-shrink: 0;
+}
+
+.page-actions select {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid #a8a8a8;
+  background: #fff;
+  color: #161616;
 }
 
 .primary-action,
@@ -432,10 +445,13 @@ p {
 }
 
 .panel-heading button,
-.records-subheading a {
+.records-subheading a,
+.records-subheading button,
+.link-button {
   border: 0;
   background: transparent;
   color: var(--o3-blue);
+  font: inherit;
   text-decoration: none;
 }
 
@@ -665,6 +681,27 @@ p {
   padding-top: 1.5rem;
 }
 
+.record-search {
+  display: flex;
+  max-width: 520px;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  padding: 0 0.85rem;
+  border: 1px solid #a8a8a8;
+  background: #fff;
+  color: #525252;
+}
+
+.record-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
 .records-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -788,7 +825,17 @@ p {
   text-decoration: none;
 }
 
+.records-sync button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--o3-blue);
+  font-size: 0.76rem;
+  text-align: left;
+}
+
 .clinical-notes {
+  grid-column: 1;
   border-right: 1px solid var(--o3-border);
 }
 
@@ -805,6 +852,7 @@ p {
 }
 
 .records-subheading a,
+.records-subheading button,
 .records-subheading span {
   color: var(--o3-blue);
   font-size: 0.75rem;
@@ -841,7 +889,9 @@ p {
 }
 
 .record-labs {
+  grid-column: 1;
   padding: 1rem;
+  border-right: 1px solid var(--o3-border);
 }
 
 .record-labs th,
@@ -853,6 +903,48 @@ p {
 .record-labs td small {
   display: block;
   color: var(--o3-muted);
+}
+
+.record-labs tr {
+  cursor: pointer;
+}
+
+.record-labs tr.selected-row {
+  box-shadow: inset 4px 0 0 var(--o3-blue);
+  background: #edf5ff;
+}
+
+.lab-detail-panel {
+  display: grid;
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  align-content: start;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--o3-border);
+  background: #f4f4f4;
+}
+
+.lab-detail-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: #161616;
+  font-size: 0.98rem;
+}
+
+.lab-detail-panel > strong {
+  color: var(--o3-blue);
+  font-size: 1.7rem;
+  font-weight: 500;
+}
+
+.lab-detail-panel span,
+.lab-detail-panel p {
+  color: #525252;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .immunization-panel {
@@ -1267,15 +1359,21 @@ p {
   background: #f4f4f4;
 }
 
-.composer-tools strong,
-.composer-tools em,
-.composer-tools span {
+.composer-tools button {
+  border: 0;
+  background: transparent;
   color: #374151;
   font-size: 1.35rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.composer-tools em {
-  font-weight: 600;
+.composer-tools .format-italic {
+  font-style: italic;
+}
+
+.composer-tools .format-list {
+  font-size: 0.85rem;
 }
 
 .composer-tools .icon-button {
@@ -1683,7 +1781,8 @@ p {
   color: var(--o3-blue);
 }
 
-.pharmacy-summary a {
+.pharmacy-summary a,
+.pharmacy-summary .link-button {
   display: block;
   margin-top: 0.75rem;
   color: var(--o3-blue);
@@ -1864,6 +1963,28 @@ p {
   line-height: 1.45;
 }
 
+.rx-action-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.rx-action-grid button {
+  min-height: 52px;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--o3-border);
+  background: #fff;
+  color: var(--o3-blue);
+  font-weight: 600;
+  text-align: left;
+}
+
+.rx-action-grid button:hover {
+  border-color: var(--o3-blue);
+  background: #edf5ff;
+}
+
 .billing-title {
   margin-bottom: 2.1rem;
 }
@@ -1981,6 +2102,21 @@ p {
   background: #fff;
   color: #161616;
   font: inherit;
+}
+
+.modal-field-select {
+  display: grid;
+  gap: 0.5rem;
+  color: #525252;
+  font-size: 0.875rem;
+}
+
+.modal-field-select select {
+  min-height: 40px;
+  padding: 0 0.75rem;
+  border: 1px solid #8d8d8d;
+  background: #fff;
+  color: #161616;
 }
 
 .payment-methods > button {
@@ -2272,7 +2408,8 @@ p {
 }
 
 .insurance-details article strong,
-.insurance-details article a {
+.insurance-details article a,
+.insurance-details article .link-button {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -2416,7 +2553,10 @@ p {
 }
 
 .featured-resource a,
+.featured-resource > header button,
 .access-activity a {
+  border: 0;
+  background: transparent;
   color: var(--o3-blue);
   text-decoration: none;
 }
@@ -2920,8 +3060,10 @@ p {
   font-size: 0.82rem;
 }
 
-.access-activity a {
+.access-activity a,
+.access-activity .link-button {
   display: block;
+  width: 100%;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--o3-border);
   text-align: right;
@@ -3244,8 +3386,16 @@ p {
   }
 
   .records-trends,
-  .clinical-notes {
+  .clinical-notes,
+  .record-labs {
     border-right: 0;
+  }
+
+  .clinical-notes,
+  .record-labs,
+  .lab-detail-panel {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .records-sync {
@@ -3452,7 +3602,8 @@ p {
 
   .quick-grid,
   .vitals-grid,
-  .immunization-grid {
+  .immunization-grid,
+  .rx-action-grid {
     grid-template-columns: 1fr;
   }
 
