@@ -1,99 +1,88 @@
 # EMR Patient Portal
 
-Full-stack OpenMRS O3-inspired patient portal built with React, Vite, TypeScript, Carbon React, IBM Plex Sans, Express, and a persistent JSON data store.
+Full-stack patient portal built with React, TypeScript, Vite, Carbon, Express, and SQLite. The API is authoritative for every visible workflow: successful changes persist across reloads, patient data is scoped to an internal patient UUID, and clinical/billing approvals remain staff-controlled.
 
-The frontend lives in `frontend/` and the API lives in `backend/`. Backend routes and services are organized by feature under `backend/src/features/<feature>/`, with shared middleware, validation, store, and domain helpers kept at `backend/src/`. The app intentionally keeps this stack; it does not use Next.js, Prisma, or SQLite.
+This repository uses local sandbox adapters for payments, notifications, clinical slot validation, drug-interaction screening, and file storage. It does not claim HIPAA compliance and must not be used with real patient data without an organizational security, privacy, and compliance review.
 
-## Setup
+## Requirements and setup
+
+- Node.js 22.13 or newer
+- npm
 
 ```bash
+cp .env.example .env
 npm install
+npm run seed:demo
 npm run dev
 ```
 
-The dev app runs at `http://127.0.0.1:5173` and proxies API calls to `http://127.0.0.1:4000`.
+The frontend runs at `http://127.0.0.1:5173`; Vite proxies `/api` to the Express API at `http://127.0.0.1:4000`. The canonical health check is `GET /api/health`.
 
 Useful commands:
 
 ```bash
-npm run dev:api
-npm run dev:web
+npm run dev
 npm run build
-npm run test:api
-npm start
+npm test
+npm run seed:demo
+npm run reset:demo
+npm run migrate:legacy
+npm run seed:admin
 ```
 
-## Seed And Demo Data
+`seed:demo` is development-only and creates representative patient, clinician, proxy, and administrator users. Public signup creates an empty patient account and never clones clinical or billing records.
 
-Data is stored in `data/db.json`. Fresh installs are seeded from `backend/src/seed-data.js`.
+## Persistence and legacy migration
 
-The store normalization layer backfills newer fields at runtime, including providers, appointment slots, uploaded files, activity logs, proxy reports, resource interactions, and privacy flags. This keeps existing dirty local data usable without requiring manual edits to `data/db.json`.
+Runtime data is stored in `data/emr.sqlite`; uploaded binaries are stored beneath `data/uploads`. Both are ignored by Git.
 
-The first registered account is bootstrapped as an administrator. Later signups become patient users until an admin changes their role from Settings > Configuration.
+The one-time importer reads `data/db.json` (or `LEGACY_DB_PATH`), creates a timestamped JSON backup, assigns patient records only when ownership is unambiguous, imports durable data into SQLite, and revokes every legacy session:
 
-## Implemented Features
+```bash
+npm run migrate:legacy
+```
 
-- Auth with bearer-token sessions and functional remember-me storage.
-- Role-based protected routes and backend permission redaction.
-- Dashboard, records, appointments, secure messages, prescriptions, billing, referrals, trends, immunizations, resources, family/proxy access, profile settings, and Settings-based admin configuration.
-- Appointment scheduler with required service, department, provider, date, time, and reason.
-- Records search/filter, patient note creation, lab narrative detail, printable record export, and upload metadata.
-- Message replies, attachment metadata, and resolved/reopened state.
-- Pharmacy changes, refill requests, medication requests, interaction check notice, and printable medication list.
-- Billing payments, payment methods, statement print view, invoice print/download actions, and support workflow.
-- Referral request, resend/contact/detail actions, export, and status updates.
-- Family/proxy invite, resend, revoke, dependent add, privacy settings, access policy, and unauthorized access reporting.
-- Resource search/filter/detail, save/read/download interactions, and local interaction logging.
-- Profile save, insurance edit/upload metadata, and emergency contact create/update/delete.
+Ambiguous patient ownership, duplicate emails, duplicate MRNs, and malformed user identities stop migration instead of guessing.
 
-## Local-Only Limitations
+## Security and data flow
 
-Exports use printable browser windows or JSON downloads; there is no server-side PDF generator.
+- Passwords use salted scrypt hashes. Only SHA-256 session-token hashes are stored.
+- Browser authentication uses an HttpOnly cookie bootstrapped through `/api/auth/me`; bearer tokens remain available for development/API clients.
+- Cookie mutations require the session-bound `X-CSRF-Token` returned by `/api/auth/me`.
+- `X-Patient-Context` selects a verified self, accepted proxy, or staff-authorized patient context.
+- Patient ownership uses a canonical internal UUID independent of optional MRN.
+- Permissions separate reads, patient requests, record/file management, clinician verification, billing management, and administration.
+- `/api/portal` contains bootstrap metadata only. Feature pages load dedicated endpoints through a patient-scoped query cache.
+- API errors use `{ code, message, status, fieldErrors?, requestId }`.
+- Audit events are append-only in SQLite; soft-deleted domain records remain queryable for audit purposes.
 
-Uploads store metadata only. No binary file is persisted.
+## Implemented workflows
 
-Payments, drug interaction checks, sharing actions, and unauthorized-access reports are safe local mock workflows backed by the JSON store.
-
-## API Overview
-
-All protected routes use `Authorization: Bearer <token>`.
-
-- Auth: `/api/auth/signup`, `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`
-- Portal/dashboard: `/api/portal`, `/api/patient/dashboard`
-- Admin access control: `/api/admin/access-control`, `/api/admin/access-control/roles/:roleId`, `/api/admin/users/:userId/access`
-- Records: `/api/records`, `/api/records/notes`, `/api/records/labs/:labId`, `/api/records/documents/:documentId`, `/api/records/printable`
-- Trends: `/api/trends`, `/api/trends/export`
-- Appointments: `/api/appointments`, `/api/appointments/export`, `/api/appointments/:appointmentId`, `/api/appointments/requests`, `/api/appointments/:appointmentId/reschedule`, `/api/appointments/:appointmentId/cancel`
-- Messages: `/api/messages`, `/api/messages/conversations`, `/api/messages/conversations/:conversationId`, `/api/messages/conversations/:conversationId/messages`, `/api/messages/conversations/:conversationId/resolve`
-- Prescriptions: `/api/prescriptions`, `/api/prescriptions/printable`, `/api/prescriptions/interactions`, `/api/prescriptions/:prescriptionId/leaflet`, `/api/prescriptions/:prescriptionId/refills`, `/api/prescriptions/medication-requests`, `/api/prescriptions/preferred-pharmacy`
-- Billing: `/api/billing`, `/api/billing/payments`, `/api/billing/payment-methods`, `/api/billing/payment-sessions`, `/api/billing/statements`, `/api/billing/statements/:statementId`, `/api/billing/invoices/:invoiceId`, `/api/billing/resources/:resourceId`
-- Referrals: `/api/referrals`, `/api/referrals/:referralId`, `/api/referrals/:referralId/action`, `/api/referrals/export`
-- Family: `/api/family`, `/api/family/proxies`, `/api/family/proxies/:proxyId`, `/api/family/proxies/:proxyId/resend`, `/api/family/dependents`, `/api/family/privacy`, `/api/family/reports`, `/api/family/policy`
-- Immunizations: `/api/immunizations`, `/api/immunizations/printable`, `/api/immunizations/:recordId`
-- Resources: `/api/resources`, `/api/resources/:resourceId`, `/api/resources/:resourceId/interactions`
-- Files: `/api/files`
-- Profile: `/api/profile`, `/api/profile/insurance`, `/api/profile/emergency-contacts`, `/api/profile/emergency-contacts/:contactId`
-
-## Manual QA Checklist
-
-- Register, login with and without remember me, logout, and verify protected redirects.
-- Book, reschedule, and cancel an appointment.
-- Send a message, attach metadata, and mark a thread resolved/reopened.
-- Request a refill, request a medication, change preferred pharmacy, print the prescription list, and start a medication message.
-- Pay an invoice/full balance, add a payment method, and print a statement.
-- Edit profile, edit insurance, upload insurance metadata, and add/edit/delete emergency contacts.
-- Invite, resend, revoke proxy access; add a dependent; update family privacy; report unauthorized access.
-- Add a note, search/filter records, open a lab narrative, and print/export records.
-- Request/update/export referrals.
-- Search/filter resources and record save/read/download interactions.
-- Download trends and immunization print views.
-- Check mobile layout and main browser console flows.
+- Cookie login/bootstrap/logout, Remember Me, password change/reset, temporary-password enforcement, session revocation, support, privacy/legal, and Not Found routes.
+- Registration/profile synchronization, versioned consent signatures, staff-controlled insurance verification, contacts, and real insurance-card uploads.
+- Transactional appointment requests, future provider slots, staff approval/rejection, exact-once appointment creation, reschedule/cancel transitions, filters, pagination, and CSV export.
+- Conversation list/detail, replies, read/resolve/archive behavior, care-team threads, and authenticated binary attachments.
+- Patient note CRUD, record search, lab/document detail, provenance labels, multipart file upload/rename/download/delete, and PDF/CSV record exports.
+- Refill and medication requests with cancellation plus staff decisions; medication leaflets and explicitly informational local interaction checks.
+- Patient-scoped invoices, tokenized sandbox methods, partial payments, idempotent charges, balance recalculation, statement generation, and PDF/CSV downloads.
+- Referral request/cancel and explicit staff state transitions with history.
+- Trend range filtering, reading/goal CRUD, recalculated summaries, and zero-percent goals.
+- Patient-reported versus verified immunizations, verification decisions, alerts, compliance recalculation, and official PDF exports.
+- Resource search/filter/pagination, persisted save/unsave/read activity, content rendering, and actual downloads.
+- Expiring proxy invitations delivered to a local outbox, acceptance/revocation, dependent CRUD, patient-context switching, and access-report review.
+- Role/user administration, one-time temporary passwords, permission refresh, staff feature queues, notifications, and audit history.
 
 ## Verification
 
-Current required checks:
-
 ```bash
-npm run build
-npm run test:api
+npm test
+npm audit --omit=dev
 ```
+
+The required test command runs formatting and syntax checks, frontend type checking, backend unit tests, production build, API workflow coverage, authorization/data-isolation regression coverage, and legacy migration tests.
+
+The security suite specifically covers two-patient isolation across portal bootstrap, records, printable exports, billing, files, guessed IDs, empty MRNs, proxy contexts, cookie/CSRF behavior, password reset, suspension, logout, and session hashing.
+
+## Configuration
+
+See `.env.example` for host/port, API root, allowed origins, cookie policy, session durations, SQLite/upload paths, provider modes, and split-host frontend settings. `SESSION_SECRET` is mandatory in production. Local provider adapters are deliberately labeled and do not connect to a real FHIR/OpenMRS server, payment processor, SMTP service, or cloud file store.
