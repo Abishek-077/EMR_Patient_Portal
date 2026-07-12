@@ -12,9 +12,9 @@ import { emergencyContactSchema, insuranceDetailsSchema, profileSchema } from '.
 
 export const profileRouter = Router();
 
-profileRouter.get('/', requireAuth, requirePermission('profile.view'), async (_request, response, next) => {
+profileRouter.get('/', requireAuth, requirePermission('profile.view'), async (request, response, next) => {
   try {
-    response.json(await getProfileOverview());
+    response.json(await getProfileOverview(request.auth.user));
   } catch (error) {
     next(error);
   }
@@ -30,7 +30,7 @@ profileRouter.patch('/', requireAuth, requirePermission('profile.update'), async
 
 profileRouter.patch('/insurance', requireAuth, requirePermission('profile.insurance.manage'), async (request, response, next) => {
   try {
-    response.json(await updateInsuranceDetails(insuranceDetailsSchema(request.body)));
+    response.json(await updateInsuranceDetails(request.auth.user, insuranceDetailsSchema(request.body)));
   } catch (error) {
     next(error);
   }
@@ -38,7 +38,7 @@ profileRouter.patch('/insurance', requireAuth, requirePermission('profile.insura
 
 profileRouter.post('/emergency-contacts', requireAuth, requirePermission('profile.emergencyContacts.manage'), async (request, response, next) => {
   try {
-    response.status(201).json(await addEmergencyContact(emergencyContactSchema(request.body)));
+    response.status(201).json(await addEmergencyContact(request.auth.user, emergencyContactSchema(request.body)));
   } catch (error) {
     next(error);
   }
@@ -46,7 +46,7 @@ profileRouter.post('/emergency-contacts', requireAuth, requirePermission('profil
 
 profileRouter.patch('/emergency-contacts/:contactId', requireAuth, requirePermission('profile.emergencyContacts.manage'), async (request, response, next) => {
   try {
-    response.json(await updateEmergencyContact(request.params.contactId, emergencyContactSchema(request.body)));
+    response.json(await updateEmergencyContact(request.auth.user, request.params.contactId, emergencyContactSchema(request.body)));
   } catch (error) {
     next(error);
   }
@@ -54,7 +54,7 @@ profileRouter.patch('/emergency-contacts/:contactId', requireAuth, requirePermis
 
 profileRouter.delete('/emergency-contacts/:contactId', requireAuth, requirePermission('profile.emergencyContacts.manage'), async (request, response, next) => {
   try {
-    response.json(await deleteEmergencyContact(request.params.contactId));
+    response.json(await deleteEmergencyContact(request.auth.user, request.params.contactId));
   } catch (error) {
     next(error);
   }

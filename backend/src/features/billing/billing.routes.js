@@ -1,81 +1,38 @@
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../middleware/auth.js';
+import { asyncRoute } from '../../shared/http/async-route.js';
 import {
-  addPaymentMethod,
-  createPayment,
-  createPaymentSession,
-  getBillingOverview,
-  getBillingResource,
-  getInvoiceDetail,
-  getStatement,
-} from './billing.service.js';
-import { billingPaymentSchema, paymentMethodSchema } from '../../validation.js';
+  addPaymentMethodController,
+  createInvoiceController,
+  createPaymentController,
+  createPaymentSessionController,
+  deleteInvoiceController,
+  deletePaymentMethodController,
+  generateStatementController,
+  getBillingOverviewController,
+  getBillingResourceController,
+  getInvoiceDetailController,
+  getLatestStatementController,
+  getStatementController,
+  setDefaultPaymentMethodController,
+  updateInvoiceController,
+  updatePaymentMethodController,
+} from './billing.controller.js';
 
 export const billingRouter = Router();
 
-billingRouter.get('/', requireAuth, requirePermission('billing.view'), async (request, response, next) => {
-  try {
-    response.json(await getBillingOverview({
-      status: String(request.query.status || 'All'),
-      query: String(request.query.query || ''),
-    }));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.post('/payments', requireAuth, requirePermission('billing.pay'), async (request, response, next) => {
-  try {
-    response.status(201).json(await createPayment(billingPaymentSchema(request.body || {})));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.post('/payment-methods', requireAuth, requirePermission('billing.paymentMethods.manage'), async (request, response, next) => {
-  try {
-    response.status(201).json(await addPaymentMethod(paymentMethodSchema(request.body)));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.post('/payment-sessions', requireAuth, requirePermission('billing.pay'), async (request, response, next) => {
-  try {
-    response.status(201).json(await createPaymentSession(request.body || {}));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.get('/statements', requireAuth, requirePermission('billing.view'), async (_request, response, next) => {
-  try {
-    response.json(await getStatement(''));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.get('/statements/:statementId', requireAuth, requirePermission('billing.view'), async (request, response, next) => {
-  try {
-    response.json(await getStatement(request.params.statementId || ''));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.get('/invoices/:invoiceId', requireAuth, requirePermission('billing.view'), async (request, response, next) => {
-  try {
-    response.json(await getInvoiceDetail(request.params.invoiceId));
-  } catch (error) {
-    next(error);
-  }
-});
-
-billingRouter.get('/resources/:resourceId', requireAuth, requirePermission('billing.view'), async (request, response, next) => {
-  try {
-    response.json(await getBillingResource(request.params.resourceId));
-  } catch (error) {
-    next(error);
-  }
-});
+billingRouter.get('/', requireAuth, requirePermission('billing.view'), asyncRoute(getBillingOverviewController));
+billingRouter.post('/payments', requireAuth, requirePermission('billing.pay'), asyncRoute(createPaymentController));
+billingRouter.post('/payment-methods', requireAuth, requirePermission('billing.paymentMethods.manage'), asyncRoute(addPaymentMethodController));
+billingRouter.patch('/payment-methods/:methodId', requireAuth, requirePermission('billing.paymentMethods.manage'), asyncRoute(updatePaymentMethodController));
+billingRouter.patch('/payment-methods/:methodId/default', requireAuth, requirePermission('billing.paymentMethods.manage'), asyncRoute(setDefaultPaymentMethodController));
+billingRouter.delete('/payment-methods/:methodId', requireAuth, requirePermission('billing.paymentMethods.manage'), asyncRoute(deletePaymentMethodController));
+billingRouter.post('/payment-sessions', requireAuth, requirePermission('billing.pay'), asyncRoute(createPaymentSessionController));
+billingRouter.get('/statements', requireAuth, requirePermission('billing.view'), asyncRoute(getLatestStatementController));
+billingRouter.get('/statements/:statementId', requireAuth, requirePermission('billing.view'), asyncRoute(getStatementController));
+billingRouter.get('/invoices/:invoiceId', requireAuth, requirePermission('billing.view'), asyncRoute(getInvoiceDetailController));
+billingRouter.post('/invoices', requireAuth, requirePermission('billing.invoices.manage'), asyncRoute(createInvoiceController));
+billingRouter.patch('/invoices/:invoiceId', requireAuth, requirePermission('billing.invoices.manage'), asyncRoute(updateInvoiceController));
+billingRouter.delete('/invoices/:invoiceId', requireAuth, requirePermission('billing.invoices.manage'), asyncRoute(deleteInvoiceController));
+billingRouter.post('/statements/generate', requireAuth, requirePermission('billing.statements.manage'), asyncRoute(generateStatementController));
+billingRouter.get('/resources/:resourceId', requireAuth, requirePermission('billing.view'), asyncRoute(getBillingResourceController));

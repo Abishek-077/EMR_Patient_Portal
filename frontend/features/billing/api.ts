@@ -1,0 +1,33 @@
+import {
+  addBillingPaymentMethod,
+  createInvoice,
+  createPaymentSession,
+  deleteBillingPaymentMethod,
+  deleteInvoice,
+  generateStatement,
+  getBillingResource,
+  getBillingStatement,
+  getInvoiceDetail,
+  payFullBalance,
+  payInvoice,
+  setDefaultPaymentMethod,
+  updateBillingPaymentMethod,
+  updateInvoice,
+} from '../../shared/api/api';
+
+export const billingApi = {
+  payFullBalance,
+  payInvoice,
+  addBillingPaymentMethod,
+  updateBillingPaymentMethod,
+  setDefaultPaymentMethod,
+  deleteBillingPaymentMethod,
+  createPaymentSession,
+  getBillingStatement,
+  getInvoiceDetail,
+  getBillingResource,
+  createInvoice,
+  updateInvoice,
+  deleteInvoice,
+  generateStatement,
+};

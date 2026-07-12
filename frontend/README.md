@@ -1,21 +1,31 @@
-# Frontend Architecture
+# Frontend
 
-The React application follows a feature-based architecture. Product areas own their UI and feature rules, while cross-feature contracts and infrastructure live in `shared/`.
+The React application uses feature-owned pages and API facades under `frontend/features`, shared contracts under `frontend/shared/types.ts`, and authenticated transports under `frontend/shared/api`.
 
-## Structure
+## Data flow
 
-- `app/` - application composition root and React bootstrap.
-- `features/auth/` - login, signup, logout, and session gate behavior.
-- `features/portal/` - authenticated patient portal shell and portal screens.
-- `features/access-control/` - frontend route and permission rules for RBAC.
-- `shared/api/` - backend HTTP client functions used by features.
-- `shared/types.ts` - shared TypeScript contracts for API/domain data.
-- `shared/styles/` - Carbon setup plus global and auth styles.
+- Authentication bootstraps from the HttpOnly cookie through `/api/auth/me`.
+- CSRF and the selected `X-Patient-Context` are attached centrally.
+- `/api/portal` provides only session/navigation/context bootstrap metadata.
+- The portal hydrates dashboard, registration, appointments, messages, records, files, prescriptions, billing, referrals, trends, immunizations, resources, profile, and family data from dedicated feature endpoints.
+- The query cache scopes keys by patient context, shares in-flight requests, cancels stale work, retries transient reads once, and invalidates affected feature/home/bootstrap keys after mutations.
+- JSON, multipart upload, authenticated blob download, and PDF/CSV export transports are separate.
+- A centralized 401 event clears client state and returns to login.
 
-## Feature Rules
+The authenticated portal bundle is lazy-loaded. Home, registration, billing, administration, layout, model, controller, API, and feature facade modules are split from the application/authentication shell.
 
-- New product capabilities should start under `features/<feature-name>/`.
-- Feature modules may import from `shared/` and other feature public entry files such as `features/auth/index.ts`, but should not reach into backend code.
-- Shared modules must stay generic; feature-specific state, permission decisions, and UI belong inside the owning feature.
-- UI should call backend endpoints through `shared/api/`, not raw `fetch`.
-- Portal permission and route decisions belong in `features/access-control/`.
+## Conventions
+
+- UI calls the API through `frontend/shared/api/api.ts` or a feature `api.ts` facade.
+- Visible mutations provide pending, success, validation/error, and destructive-confirmation states.
+- Permission checks use `frontend/features/access-control` and are still enforced independently by the server.
+- Real files use `FormData`; downloads use authenticated blobs. Tokens are never appended to download URLs.
+- Global stylesheet module declarations, including SCSS, live in `frontend/styles.d.ts`.
+
+## Verify
+
+```bash
+npm run typecheck
+npm run build
+npm test
+```

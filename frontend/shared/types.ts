@@ -61,8 +61,17 @@ export type AppointmentRequest = {
   reason: string;
   preferredDate: string;
   notes: string;
-  status: 'Queued';
+  status: 'Queued' | 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
   createdAt: string;
+  provider?: string;
+  department?: string;
+  slotId?: string | null;
+  date?: string;
+  time?: string;
+  location?: string;
+  service?: string;
+  requestType?: string;
+  updatedAt?: string;
 };
 
 export type Medication = {
@@ -88,7 +97,8 @@ export type RefillRequest = {
   id: string;
   prescriptionId: string;
   prescriptionName: string;
-  status: 'Queued';
+  pharmacyName?: string;
+  status: 'Pending' | 'Queued' | 'Approved' | 'Rejected' | 'Cancelled';
   createdAt: string;
 };
 
@@ -96,7 +106,7 @@ export type MedicationRequest = {
   id: string;
   medicationName: string;
   notes: string;
-  status: 'Pending';
+  status: 'Pending' | 'Queued' | 'Approved' | 'Rejected' | 'Cancelled';
   createdAt: string;
 };
 
@@ -105,8 +115,29 @@ export type BillingInvoice = {
   date: string;
   description: string;
   amount: number;
-  status: 'Overdue' | 'Paid' | 'Pending';
+  paidAmount?: number;
+  balanceDue?: number;
+  status: 'Overdue' | 'Paid' | 'Pending' | 'Partially Paid';
   paidAt?: string;
+  createdAt?: string;
+  deletedAt?: string;
+};
+
+export type BillingInvoiceInput = {
+  description: string;
+  amount: number;
+  date?: string;
+  status?: string;
+};
+
+export type AdminUserInput = {
+  fullName: string;
+  email: string;
+  dateOfBirth?: string;
+  patientId?: string;
+  roles: string[];
+  status?: string;
+  password?: string;
 };
 
 export type BillingPaymentMethod = {
@@ -246,6 +277,10 @@ export type ClinicalNote = {
   date: string;
   title: string;
   text: string;
+  provenance?: 'patient-reported' | 'clinician' | 'registry' | string;
+  verificationStatus?: 'unverified' | 'verified' | string;
+  createdByUserId?: string;
+  deletedAt?: string;
 };
 
 export type Immunization = {
@@ -257,21 +292,39 @@ export type Immunization = {
   tone: 'green' | 'yellow';
 };
 
+export type ImmunizationCompletedRecord = {
+  id: string;
+  vaccine: string;
+  date: string;
+  dose: string;
+  provider: string;
+  route: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string;
+  provenance?: 'patient-reported' | 'clinician' | 'registry' | string;
+  verificationStatus?: 'Pending verification' | 'Verified' | 'Rejected' | string;
+};
+
+export type ImmunizationAlert = {
+  id: string;
+  tone: 'warning' | 'info' | 'neutral';
+  title: string;
+  detail: string;
+  dismissed?: boolean;
+};
+
+export type ImmunizationRecordInput = {
+  vaccine: string;
+  date: string;
+  dose: string;
+  provider?: string;
+  route?: string;
+};
+
 export type ImmunizationRecords = {
-  alerts: Array<{
-    id: string;
-    tone: 'warning' | 'info' | 'neutral';
-    title: string;
-    detail: string;
-  }>;
-  completed: Array<{
-    id: string;
-    vaccine: string;
-    date: string;
-    dose: string;
-    provider: string;
-    route: string;
-  }>;
+  alerts: ImmunizationAlert[];
+  completed: ImmunizationCompletedRecord[];
   compliance: {
     percent: number;
     completed: number;
@@ -330,7 +383,7 @@ export type ReferralsData = {
     provider: string;
     specialty: string;
     reason: string;
-    status: 'Pending' | 'Scheduled' | 'Completed';
+    status: 'Pending' | 'Approved' | 'Scheduled' | 'Completed' | 'Rejected' | 'Cancelled';
     actions: string[];
     appointment?: string;
   }>;
@@ -354,12 +407,14 @@ export type FamilyAccessData = {
     relationship: string;
     permissions: string;
     status: string;
+    email?: string;
   }>;
   accounts: Array<{
     id: string;
     name: string;
     detail: string;
     access: string;
+    relationship?: string;
   }>;
   activity: Array<{
     id: string;
@@ -376,22 +431,52 @@ export type FamilyAccessData = {
   }>;
 };
 
+export type TrendMetric = {
+  id: string;
+  label: string;
+  unit?: string;
+  latestValue?: string;
+  status?: string;
+  latest?: string;
+  averageLabel?: string;
+  average?: string;
+  points?: number[];
+  readings?: Array<{
+    id: string;
+    value: string;
+    recordedAt: string;
+    unit?: string;
+    deletedAt?: string;
+  }>;
+};
+
+export type TrendGoal = {
+  id: string;
+  label: string;
+  progress: number;
+  deletedAt?: string;
+};
+
+export type TrendReadingInput = {
+  metricId?: string;
+  label: string;
+  value: string;
+  unit?: string;
+  recordedAt?: string;
+};
+
+export type TrendGoalInput = {
+  label: string;
+  progress: number;
+};
+
 export type HealthTrendsData = {
-  summary: {
+  summary?: {
     withinRange: number;
     attentionRequired: number;
     updates: string[];
   };
-  metrics: Array<{
-    id: string;
-    label: string;
-    status: string;
-    latest: string;
-    unit: string;
-    averageLabel: string;
-    average: string;
-    points: number[];
-  }>;
+  metrics: TrendMetric[];
   labComparison: Array<{
     parameter: string;
     baseline: string;
@@ -399,11 +484,7 @@ export type HealthTrendsData = {
     change: string;
     status: 'Normal' | 'Elevated' | 'Attention';
   }>;
-  goals: Array<{
-    id: string;
-    label: string;
-    progress: number;
-  }>;
+  goals: TrendGoal[];
 };
 
 export type AccessStatus = 'Active' | 'Suspended';
@@ -453,6 +534,11 @@ export type AccessControlOverview = {
   roles: AccessRole[];
   users: AccessUser[];
   auditLog: AccessAuditEvent[];
+  oneTimeCredentials?: {
+    userId: string;
+    email: string;
+    temporaryPassword: string;
+  };
 };
 
 export type Message = {
@@ -479,6 +565,72 @@ export type InsuranceDetails = {
   policyHolder: string;
   activeThrough: string;
   verifiedAt: string;
+  updatedAt?: string;
+};
+
+export type RegistrationDemographics = {
+  fullName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  address: string;
+  preferredLanguage: string;
+  emergencyContact: string;
+  updatedAt?: string;
+};
+
+export type RegistrationConsent = {
+  id: string;
+  title: string;
+  description: string;
+  signerName?: string;
+  signedAt?: string;
+};
+
+export type RegistrationForm = {
+  id: string;
+  title: string;
+  fields: Record<string, string>;
+  status: string;
+  updatedAt?: string;
+};
+
+export type RegistrationIntake = {
+  demographics: RegistrationDemographics;
+  insurance: InsuranceDetails;
+  consents: RegistrationConsent[];
+  forms: RegistrationForm[];
+  completion: {
+    completedSteps: number;
+    totalSteps: number;
+    percent: number;
+    status: 'Not Started' | 'In Progress' | 'Complete' | string;
+  };
+  updatedAt?: string;
+};
+
+export type HomeData = {
+  patient: DashboardData['patient'];
+  summary: {
+    welcomeName: string;
+    overviewDate: string;
+    upcomingAppointments: number;
+    unreadMessages: number;
+    refillsDue: number;
+    outstandingBalance: number;
+    registrationStatus: string;
+    registrationPercent: number;
+  };
+  nextSteps: Array<{
+    id: string;
+    label: string;
+    detail: string;
+    target: string;
+    priority: string;
+  }>;
+  upcomingAppointments: Appointment[];
+  recentActivity: DashboardActivity[];
+  tasks: Task[];
 };
 
 export type EmergencyContact = {
@@ -505,6 +657,7 @@ export type ThreadMessage = {
   attachment?: {
     fileName: string;
     size: string;
+    fileId?: string;
   };
 };
 
@@ -516,6 +669,9 @@ export type UploadedFile = {
   source: string;
   relatedId?: string | null;
   uploadedAt: string;
+  mimeType?: string;
+  bytes?: number;
+  deletedAt?: string;
 };
 
 export type MessageConversation = {
@@ -571,6 +727,21 @@ export type PortalDocument = {
 
 export type PortalData = {
   currentUser: AccessUser;
+  subjectUser?: Pick<AccessUser, 'id' | 'fullName' | 'email' | 'patientId'>;
+  patientContexts?: Array<{
+    id: string;
+    label: string;
+    medicalRecordNumber?: string;
+    type?: string;
+    relationship?: string;
+  }>;
+  currentPatientContext?: {
+    id: string;
+    label: string;
+    medicalRecordNumber?: string;
+    type?: string;
+    relationship?: string;
+  } | null;
   access: {
     roles: string[];
     roleLabels: string[];
@@ -593,6 +764,7 @@ export type PortalData = {
   refillRequests: RefillRequest[];
   medicationRequests: MedicationRequest[];
   billing: BillingData;
+  registration?: RegistrationIntake;
   profileSettings: ProfileSettings;
   accountStatus: AccountStatus;
   insuranceDetails: InsuranceDetails;
