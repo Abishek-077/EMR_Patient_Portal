@@ -1,9 +1,11 @@
 export class ApiError extends Error {
-  constructor(statusCode, message, details = undefined) {
+  constructor(statusCode, message, details = undefined, code = undefined) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
+    this.code = code || codeForStatus(statusCode);
     this.details = details;
+    this.fieldErrors = details?.fieldErrors;
   }
 }
 
@@ -27,3 +29,12 @@ export function conflict(message) {
   return new ApiError(409, message);
 }
 
+function codeForStatus(statusCode) {
+  return {
+    400: 'BAD_REQUEST',
+    401: 'UNAUTHORIZED',
+    403: 'FORBIDDEN',
+    404: 'NOT_FOUND',
+    409: 'CONFLICT',
+  }[statusCode] || 'API_ERROR';
+}

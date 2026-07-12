@@ -4,10 +4,14 @@ import path from 'node:path';
 
 const tempDir = await mkdtemp(path.join(tmpdir(), 'emr-backend-'));
 process.env.EMR_DB_PATH = path.join(tempDir, 'db.json');
+process.env.EMR_UPLOAD_DIR = path.join(tempDir, 'uploads');
 process.env.PORT = '0';
 
 const { createServer } = await import('node:http');
 const { createApp } = await import('../src/app.js');
+const { createDevelopmentAdmin } = await import('../src/features/auth/auth.service.js');
+const { provisionPatientDemoData } = await import('../src/domain/patient-scope.js');
+const { updateDb } = await import('../src/store.js');
 
 const server = createServer(createApp());
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -34,10 +38,16 @@ try {
   assert(Boolean(signup.body.token), 'signup should return a token');
 
   const token = signup.body.token;
+  const patientContextId = signup.body.currentPatientContext.id;
+  await updateDb((database) => {
+    const patient = database.users.find((user) => user.id === signup.body.user.id);
+    provisionPatientDemoData(database, patient);
+  });
   const me = await json('/api/auth/me', { method: 'GET', token });
   assert(me.status === 200, 'me should return 200');
   assert(me.body.user.email === 'smoke.patient@example.com', 'me should return public user');
-  assert(me.body.user.roles.includes('admin'), 'first registered user should bootstrap as admin');
+  assert(me.body.user.roles.includes('patient'), 'first registered user should be a patient');
+  assert(!me.body.user.roles.includes('admin'), 'public signup must not bootstrap an admin');
 
   const limitedSignup = await json('/api/auth/signup', {
     method: 'POST',
@@ -53,6 +63,27 @@ try {
   assert(limitedSignup.body.user.roles.includes('patient'), 'second signup should be a patient');
   assert(!limitedSignup.body.user.roles.includes('admin'), 'second signup should not be an admin');
 
+  const patientAdminDenied = await json('/api/admin/access-control', { method: 'GET', token });
+  assert(patientAdminDenied.status === 403, 'public signup patient should not access admin access control');
+
+  await createDevelopmentAdmin({
+    fullName: 'Backend Smoke Admin',
+    email: 'smoke.admin@example.com',
+    dateOfBirth: '1975-01-01',
+    patientId: 'SMOKE-ADMIN',
+    password: 'Admin@Test1',
+  });
+
+  const adminLogin = await json('/api/auth/login', {
+    method: 'POST',
+    body: {
+      usernameOrEmail: 'smoke.admin@example.com',
+      password: 'Admin@Test1',
+    },
+  });
+  assert(adminLogin.status === 200, 'development admin login should return 200');
+  assert(adminLogin.body.user.roles.includes('admin'), 'development admin should have admin role');
+
   const login = await json('/api/auth/login', {
     method: 'POST',
     body: {
@@ -62,7 +93,261 @@ try {
   });
   assert(login.status === 200, 'login should return 200');
 
-  const accessOverview = await json('/api/admin/access-control', { method: 'GET', token: login.body.token });
+  const home = await json('/api/patient/home', { method: 'GET', token: login.body.token });
+  assert(home.status === 200, 'home should return 200');
+  assert(home.body.summary.registrationStatus, 'home should include registration status');
+  assert(Array.isArray(home.body.nextSteps), 'home should include next steps');
+
+  let registration = await json('/api/registration', { method: 'GET', token: login.body.token });
+  assert(registration.status === 200, 'registration intake should return 200');
+  assert(registration.body.demographics.email === 'smoke.patient@example.com', 'registration should include authenticated patient demographics');
+  assert(registration.body.consents.some((consent) => consent.id === 'privacy-practices'), 'registration should include consent documents');
+
+  registration = await json('/api/registration/demographics', {
+    method: 'PATCH',
+    token: login.body.token,
+    body: {
+      fullName: 'Backend Smoke Patient',
+      email: 'smoke.patient@example.com',
+      phone: '+1 (555) 010-1111',
+      dateOfBirth: '1985-05-12',
+      address: '100 Smoke Intake Way',
+      preferredLanguage: 'English (US)',
+      emergencyContact: 'Smoke Contact',
+    },
+  });
+  assert(registration.status === 200, 'registration demographics update should return 200');
+  assert(registration.body.demographics.phone === '+1 (555) 010-1111', 'registration demographics should persist phone');
+
+  registration = await json('/api/registration/insurance', {
+    method: 'PATCH',
+    token: login.body.token,
+    body: {
+      primaryProvider: 'Smoke Intake Health',
+      memberId: 'INTAKE-123',
+      groupNumber: 'INTAKE-GROUP',
+      policyHolder: 'Self',
+      activeThrough: '12/2030',
+      verifiedAt: 'Pending verification',
+    },
+  });
+  assert(registration.status === 200, 'registration insurance update should return 200');
+  assert(registration.body.insurance.primaryProvider === 'Smoke Intake Health', 'registration insurance should persist provider');
+
+  registration = await json('/api/registration/consents/privacy-practices/sign', {
+    method: 'POST',
+    token: login.body.token,
+    body: { signerName: 'Backend Smoke Patient' },
+  });
+  assert(registration.status === 201, 'registration consent signing should return 201');
+  assert(
+    registration.body.consents.find((consent) => consent.id === 'privacy-practices').signedAt,
+    'registration consent should persist signature timestamp',
+  );
+
+  registration = await json('/api/registration/forms/pre-visit-history', {
+    method: 'PATCH',
+    token: login.body.token,
+    body: {
+      fields: {
+        reasonForVisit: 'Smoke intake review',
+        currentMedications: 'Metformin',
+        allergies: 'None known',
+        surgeries: 'Appendectomy',
+      },
+      status: 'In Progress',
+    },
+  });
+  assert(registration.status === 200, 'registration form update should return 200');
+  assert(
+    registration.body.forms.find((form) => form.id === 'pre-visit-history').fields.reasonForVisit === 'Smoke intake review',
+    'registration form should persist field updates',
+  );
+
+  const isolatedRegistration = await json('/api/registration', { method: 'GET', token: limitedSignup.body.token });
+  assert(isolatedRegistration.status === 200, 'second patient registration should return 200');
+  assert(
+    isolatedRegistration.body.demographics.email === 'limited.patient@example.com',
+    'second patient registration should not expose user A demographics',
+  );
+
+  const patientInvoiceCreateDenied = await json('/api/billing/invoices', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      date: 'Jan 20, 2030',
+      description: 'Patient-created invoice should be blocked',
+      amount: 50,
+      status: 'Pending',
+    },
+  });
+  assert(patientInvoiceCreateDenied.status === 403, 'patient should not create invoices with billing.pay');
+
+  const adminInvoice = await json('/api/billing/invoices', {
+    method: 'POST',
+    token: adminLogin.body.token,
+    body: {
+      date: 'Jan 20, 2030',
+      description: 'Admin-created invoice smoke coverage',
+      amount: 50,
+      status: 'Pending',
+    },
+  });
+  assert(adminInvoice.status === 201, 'admin should create invoices with billing.invoices.manage');
+
+  const adminInvoiceUpdate = await json(`/api/billing/invoices/${adminInvoice.body.id}`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    body: {
+      date: 'Jan 21, 2030',
+      description: 'Admin-updated invoice smoke coverage',
+      amount: 55,
+      status: 'Pending',
+    },
+  });
+  assert(adminInvoiceUpdate.status === 200, 'admin should update invoices with billing.invoices.manage');
+
+  const adminInvoiceDelete = await json(`/api/billing/invoices/${adminInvoice.body.id}`, {
+    method: 'DELETE',
+    token: adminLogin.body.token,
+  });
+  assert(adminInvoiceDelete.status === 200, 'admin should delete invoices with billing.invoices.manage');
+
+  const appointmentCatalog = await json('/api/appointments?status=upcoming&pageSize=100', { method: 'GET', token: login.body.token });
+  const firstSlot = appointmentCatalog.body.appointmentSlots[0];
+  const firstProvider = appointmentCatalog.body.providers.find((provider) => provider.id === firstSlot.providerId);
+  const isolatedRequest = await json('/api/appointments', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      service: 'Isolation appointment',
+      clinician: firstProvider.name,
+      provider: firstProvider.name,
+      date: firstSlot.date,
+      time: firstSlot.time,
+      department: firstProvider.department,
+      location: firstProvider.location,
+      reason: 'Cross-user isolation check',
+    },
+  });
+  assert(isolatedRequest.status === 202, 'user A should create an isolated appointment request');
+
+  const isolatedApproval = await json(`/api/appointments/requests/${isolatedRequest.body.id}/decision`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: { decision: 'Approved' },
+  });
+  assert(isolatedApproval.status === 200, 'admin should approve user A appointment request');
+  const isolatedAppointment = isolatedApproval.body.appointment;
+
+  const competingRequest = await json('/api/appointments', {
+    method: 'POST',
+    token: limitedSignup.body.token,
+    body: {
+      service: 'Conflicting appointment',
+      clinician: firstProvider.name,
+      provider: firstProvider.name,
+      date: firstSlot.date,
+      time: firstSlot.time,
+      department: firstProvider.department,
+      location: firstProvider.location,
+      reason: 'Double booking should be rejected',
+    },
+  });
+  assert(competingRequest.status === 409, 'a reserved slot should reject a competing request');
+
+  const blockedAppointmentDetail = await json(`/api/appointments/${isolatedAppointment.id}`, {
+    method: 'GET',
+    token: limitedSignup.body.token,
+  });
+  assert(blockedAppointmentDetail.status === 404, 'user B direct appointment access to user A resource should fail');
+
+  const isolatedNote = await json('/api/records/notes', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      title: 'User A private isolation note',
+      text: 'This note must not appear for User B.',
+      type: 'Patient Note',
+    },
+  });
+  assert(isolatedNote.status === 201, 'user A should create isolated clinical note');
+
+  const isolatedMessage = await json('/api/messages', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      recipientId: firstProvider.id,
+      subject: 'User A private isolation thread',
+      body: 'This message must not appear for User B.',
+    },
+  });
+  assert(isolatedMessage.status === 201, 'user A should create isolated message thread');
+
+  const messageRecipients = await json('/api/messages/recipients', { method: 'GET', token: login.body.token });
+  assert(messageRecipients.status === 200, 'message recipients should return 200');
+  assert(messageRecipients.body.recipients.some((recipient) => recipient.id === firstProvider.id), 'message recipients should include active care-team providers');
+
+  const blockedMessageDetail = await json(`/api/messages/conversations/${isolatedMessage.body.conversationId}`, {
+    method: 'GET',
+    token: limitedSignup.body.token,
+  });
+  assert(blockedMessageDetail.status === 404, 'user B direct message-thread access to user A resource should fail');
+
+  await updateDb((db) => {
+    db.billing.invoices.unshift({
+      id: 'INV-USER-A-ONLY',
+      patientId: signup.body.user.patientId,
+      userId: signup.body.user.id,
+      createdByUserId: signup.body.user.id,
+      date: 'Jan 15, 2030',
+      description: 'User A private invoice',
+      amount: 99,
+      paidAmount: 0,
+      balanceDue: 99,
+      status: 'Pending',
+    });
+  });
+
+  const blockedInvoiceDetail = await json('/api/billing/invoices/INV-USER-A-ONLY', {
+    method: 'GET',
+    token: limitedSignup.body.token,
+  });
+  assert(blockedInvoiceDetail.status === 404, 'user B direct invoice access to user A resource should fail');
+
+  const blockedInvoicePayment = await json('/api/billing/payments', {
+    method: 'POST',
+    token: limitedSignup.body.token,
+    body: {
+      invoiceId: 'INV-USER-A-ONLY',
+      amount: 10,
+    },
+  });
+  assert(blockedInvoicePayment.status === 404, 'user B cannot pay user A invoice by direct ID');
+
+  const limitedIsolationPortal = await json('/api/portal', { method: 'GET', token: limitedSignup.body.token });
+  assert(limitedIsolationPortal.status === 200, 'user B portal should load for isolation check');
+  assert(!('appointments' in limitedIsolationPortal.body), 'portal bootstrap should not embed appointment feature data');
+  assert(!('clinicalNotes' in limitedIsolationPortal.body), 'portal bootstrap should not embed record feature data');
+  assert(!('messageConversations' in limitedIsolationPortal.body), 'portal bootstrap should not embed message feature data');
+  const limitedIsolationAppointments = await json('/api/appointments?status=all&pageSize=100', { method: 'GET', token: limitedSignup.body.token });
+  const limitedIsolationRecords = await json('/api/records', { method: 'GET', token: limitedSignup.body.token });
+  const limitedIsolationMessages = await json('/api/messages/conversations', { method: 'GET', token: limitedSignup.body.token });
+  assert(
+    !limitedIsolationAppointments.body.appointments.some((appointment) => appointment.id === isolatedAppointment.id),
+    'user B appointment API must not include user A appointment',
+  );
+  assert(
+    !limitedIsolationRecords.body.clinicalNotes.some((note) => note.id === isolatedNote.body.id),
+    'user B records API must not include user A clinical note',
+  );
+  assert(
+    !limitedIsolationMessages.body.conversations.some((conversation) => conversation.id === isolatedMessage.body.conversationId),
+    'user B messages API must not include user A message thread',
+  );
+
+  const accessOverview = await json('/api/admin/access-control', { method: 'GET', token: adminLogin.body.token });
   assert(accessOverview.status === 200, 'admin access overview should return 200');
   assert(accessOverview.body.permissionCatalog.length >= 1, 'access overview should include permissions');
   assert(accessOverview.body.roles.some((role) => role.id === 'doctor'), 'access overview should include doctor role');
@@ -75,7 +360,7 @@ try {
   const patientWithoutBilling = patientRole.permissions.filter((permission) => !permission.startsWith('billing.'));
   const roleUpdate = await json('/api/admin/access-control/roles/patient', {
     method: 'PATCH',
-    token: login.body.token,
+    token: adminLogin.body.token,
     body: { permissions: patientWithoutBilling },
   });
   assert(roleUpdate.status === 200, 'admin should update patient role permissions');
@@ -92,13 +377,20 @@ try {
   assert(!('users' in limitedPortal.body), 'limited portal response must not expose users');
   assert(!('sessions' in limitedPortal.body), 'limited portal response must not expose sessions');
   assert(!('accessControl' in limitedPortal.body), 'limited portal response must not expose access control internals');
-  assert(limitedPortal.body.billing.invoices.length === 0, 'limited portal should redact billing invoices');
+  assert(!('billing' in limitedPortal.body), 'portal bootstrap must never embed billing invoices');
+
+  const restoredPatientRole = await json('/api/admin/access-control/roles/patient', {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    body: { permissions: patientRole.permissions },
+  });
+  assert(restoredPatientRole.status === 200, 'admin should restore patient role permissions');
 
   const limitedUser = roleUpdate.body.users.find((user) => user.email === 'limited.patient@example.com');
   assert(limitedUser, 'limited user should appear in admin overview');
   const userAccessUpdate = await json(`/api/admin/users/${limitedUser.id}/access`, {
     method: 'PATCH',
-    token: login.body.token,
+    token: adminLogin.body.token,
     body: { roles: ['doctor'], status: 'Active' },
   });
   assert(userAccessUpdate.status === 200, 'admin should update user access');
@@ -113,7 +405,7 @@ try {
 
   const suspendedUser = await json(`/api/admin/users/${limitedUser.id}/access`, {
     method: 'PATCH',
-    token: login.body.token,
+    token: adminLogin.body.token,
     body: { roles: ['doctor'], status: 'Suspended' },
   });
   assert(suspendedUser.status === 200, 'admin should suspend a user');
@@ -127,11 +419,11 @@ try {
   });
   assert(suspendedLogin.status === 401, 'suspended user should not be able to log in');
 
-  const adminUser = accessOverview.body.users.find((user) => user.email === 'smoke.patient@example.com');
+  const adminUser = accessOverview.body.users.find((user) => user.email === 'smoke.admin@example.com');
   assert(adminUser, 'admin user should appear in access overview');
   const lastAdminRemoval = await json(`/api/admin/users/${adminUser.id}/access`, {
     method: 'PATCH',
-    token: login.body.token,
+    token: adminLogin.body.token,
     body: { roles: ['patient'], status: 'Suspended' },
   });
   assert(lastAdminRemoval.status === 403, 'API should prevent removing the last active access admin');
@@ -145,7 +437,8 @@ try {
   assert(portal.status === 200, 'portal should return 200');
   assert(!('users' in portal.body), 'portal response must not expose users');
   assert(!('sessions' in portal.body), 'portal response must not expose sessions');
-  assert(Array.isArray(portal.body.messageConversations), 'portal should include Sprint 3 conversations');
+  assert(Array.isArray(portal.body.navigation), 'portal should contain permission-aware navigation bootstrap data');
+  assert(portal.body.featureEndpoints.messages, 'portal should advertise the dedicated messages endpoint');
 
   const records = await json('/api/records?query=glucose&type=all', { method: 'GET', token: login.body.token });
   assert(records.status === 200, 'records list should return 200');
@@ -181,20 +474,19 @@ try {
 
   const trendsExport = await json('/api/trends/export?range=3m', { method: 'GET', token: login.body.token });
   assert(trendsExport.status === 200, 'trends export should return 200');
-  assert(trendsExport.body.printable === true, 'trends export should be printable');
+  assert(trendsExport.body.title === 'Health Trends & Vitals Report', 'trends export should return the report contract');
 
+  const uploadForm = new FormData();
+  uploadForm.set('category', 'Health records upload');
+  uploadForm.set('source', 'smoke-test');
+  uploadForm.set('file', new Blob(['%PDF-1.4\nsmoke upload\n%%EOF'], { type: 'application/pdf' }), 'smoke-upload.pdf');
   const upload = await json('/api/files', {
     method: 'POST',
     token: login.body.token,
-    body: {
-      fileName: 'smoke-upload.pdf',
-      category: 'Health records upload',
-      size: '42 KB',
-      source: 'smoke-test',
-    },
+    body: uploadForm,
   });
-  assert(upload.status === 201, 'file metadata upload should return 201');
-  assert(upload.body.fileName === 'smoke-upload.pdf', 'file metadata should persist file name');
+  assert(upload.status === 201, 'binary file upload should return 201');
+  assert(upload.body.fileName === 'smoke-upload.pdf', 'file upload should persist file name');
 
   const conversations = await json('/api/messages/conversations', { method: 'GET', token: login.body.token });
   assert(conversations.status === 200, 'conversation list should return 200');
@@ -219,13 +511,14 @@ try {
     body: {
       body: 'Attached file metadata for review.',
       attachment: {
-        fileName: 'home-blood-pressure-log.pdf',
-        size: '96 KB',
+        fileId: upload.body.id,
+        fileName: upload.body.fileName,
+        size: upload.body.size,
       },
     },
   });
   assert(attachmentReply.status === 201, 'conversation attachment reply should return 201');
-  assert(attachmentReply.body.conversation.messages.at(-1).attachment.fileName === 'home-blood-pressure-log.pdf', 'attachment metadata should append to thread');
+  assert(attachmentReply.body.conversation.messages.at(-1).attachment.fileId === upload.body.id, 'owned file attachment should append to thread');
 
   const resolved = await json(`/api/messages/conversations/${conversationId}/resolve`, {
     method: 'PATCH',
@@ -242,43 +535,61 @@ try {
   const appointmentsExport = await json('/api/appointments/export?status=upcoming', { method: 'GET', token: login.body.token });
   assert(appointmentsExport.status === 200, 'appointments export should return 200');
   assert(Array.isArray(appointmentsExport.body.appointments), 'appointments export should include appointments');
+  const appointmentsCsv = await raw('/api/appointments/export?status=upcoming&format=csv', { method: 'GET', token: login.body.token });
+  assert(appointmentsCsv.status === 200 && appointmentsCsv.headers.get('content-type').includes('text/csv'), 'appointments CSV export should stream CSV');
+  assert((await appointmentsCsv.text()).includes('id'), 'appointments CSV export should contain a header row');
 
-  const scheduled = await json('/api/appointments', {
+  const refreshedAppointmentCatalog = await json('/api/appointments?status=upcoming&pageSize=100', { method: 'GET', token: login.body.token });
+  const secondSlot = refreshedAppointmentCatalog.body.appointmentSlots.find((slot) => slot.id !== firstSlot.id);
+  const secondProvider = refreshedAppointmentCatalog.body.providers.find((provider) => provider.id === secondSlot.providerId);
+  const scheduledRequest = await json('/api/appointments', {
     method: 'POST',
     token: login.body.token,
     body: {
       service: 'Follow-up lab review',
-      clinician: 'Dr. Sarah Jenkins',
-      provider: 'Dr. Sarah Jenkins',
-      date: 'Dec 05, 2023',
-      time: '10:00 AM (Tuesday)',
-      department: 'Cardiology',
-      location: 'Main Clinic, Suite 402',
+      clinician: secondProvider.name,
+      provider: secondProvider.name,
+      date: secondSlot.date,
+      time: secondSlot.time,
+      department: secondProvider.department,
+      location: secondProvider.location,
       reason: 'Follow-up lab review',
     },
   });
-  assert(scheduled.status === 201, 'schedule appointment should return 201');
-  assert(scheduled.body.status === 'Pending', 'scheduled appointment should be pending');
+  assert(scheduledRequest.status === 202, 'schedule appointment should create a pending request');
 
-  const appointmentDetail = await json(`/api/appointments/${scheduled.body.id}`, { method: 'GET', token: login.body.token });
+  const scheduledApproval = await json(`/api/appointments/requests/${scheduledRequest.body.id}/decision`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: { decision: 'Approved' },
+  });
+  assert(scheduledApproval.status === 200, 'staff approval should create the appointment');
+  const scheduled = scheduledApproval.body.appointment;
+  assert(scheduled.status === 'Confirmed', 'approved appointment should be confirmed');
+
+  const appointmentDetail = await json(`/api/appointments/${scheduled.id}`, { method: 'GET', token: login.body.token });
   assert(appointmentDetail.status === 200, 'appointment detail should return 200');
-  assert(appointmentDetail.body.appointment.id === scheduled.body.id, 'appointment detail should include appointment');
+  assert(appointmentDetail.body.appointment.id === scheduled.id, 'appointment detail should include appointment');
 
-  const rescheduled = await json(`/api/appointments/${scheduled.body.id}/reschedule`, {
+  const thirdSlot = refreshedAppointmentCatalog.body.appointmentSlots.find((slot) => ![firstSlot.id, secondSlot.id].includes(slot.id));
+  const thirdProvider = refreshedAppointmentCatalog.body.providers.find((provider) => provider.id === thirdSlot.providerId);
+
+  const rescheduled = await json(`/api/appointments/${scheduled.id}/reschedule`, {
     method: 'PATCH',
     token: login.body.token,
     body: {
-      date: 'Dec 08, 2023',
-      time: '11:30 AM (Friday)',
-      provider: 'Dr. Michael Chen',
-      department: 'Cardiology',
+      date: thirdSlot.date,
+      time: thirdSlot.time,
+      provider: thirdProvider.name,
+      department: thirdProvider.department,
       notes: 'Smoke test reschedule',
     },
   });
   assert(rescheduled.status === 200, 'reschedule appointment should return 200');
-  assert(rescheduled.body.date === 'Dec 08, 2023', 'rescheduled appointment should update date');
+  assert(rescheduled.body.date === thirdSlot.date, 'rescheduled appointment should update date');
 
-  const cancelled = await json(`/api/appointments/${scheduled.body.id}/cancel`, {
+  const cancelled = await json(`/api/appointments/${scheduled.id}/cancel`, {
     method: 'PATCH',
     token: login.body.token,
     body: { reason: 'Smoke test cancellation' },
@@ -300,19 +611,38 @@ try {
       clinic: 'Metro Rehab Clinic',
     },
   });
-  assert(referralRequest.status === 201, 'referral request should return 201');
+  assert(referralRequest.status === 202, 'referral request should return 202');
   assert(referralRequest.body.status === 'Pending', 'referral request should be pending');
 
-  const referralAction = await json(`/api/referrals/${referralRequest.body.id}/action`, {
-    method: 'PATCH',
+  const referralCalendar = await json(`/api/referrals/${referralRequest.body.id}/calendar`, {
+    method: 'GET',
     token: login.body.token,
+  });
+  assert(referralCalendar.status === 200, 'referral calendar read should not mutate status');
+  assert(referralCalendar.body.status === 'Pending', 'calendar read should leave referral pending');
+
+  const referralApproval = await json(`/api/referrals/${referralRequest.body.id}/status`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
     body: {
-      action: 'View Calendar',
-      note: 'Smoke test referral action',
+      status: 'Approved',
     },
   });
-  assert(referralAction.status === 200, 'referral action should return 200');
-  assert(referralAction.body.status === 'Scheduled', 'calendar action should mark referral scheduled');
+  assert(referralApproval.status === 200, 'staff should approve referral');
+
+  const referralScheduled = await json(`/api/referrals/${referralRequest.body.id}/status`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: {
+      status: 'Scheduled',
+      appointment: '2030-02-01T10:00:00Z',
+      clinic: 'Metro Rehab Clinic',
+    },
+  });
+  assert(referralScheduled.status === 200, 'staff should schedule referral');
+  assert(referralScheduled.body.status === 'Scheduled', 'referral status should be scheduled');
 
   const referralDetail = await json(`/api/referrals/${referralRequest.body.id}`, { method: 'GET', token: login.body.token });
   assert(referralDetail.status === 200, 'referral detail should return 200');
@@ -321,6 +651,9 @@ try {
   const referralExport = await json('/api/referrals/export', { method: 'GET', token: login.body.token });
   assert(referralExport.status === 200, 'referral export should return 200');
   assert(Array.isArray(referralExport.body.referrals), 'referral export should include referrals');
+  const referralPdf = await raw('/api/referrals/export?format=pdf', { method: 'GET', token: login.body.token });
+  assert(referralPdf.status === 200 && referralPdf.headers.get('content-type').includes('application/pdf'), 'referral PDF export should stream a PDF');
+  assert(Buffer.from(await referralPdf.arrayBuffer()).subarray(0, 5).toString('ascii') === '%PDF-', 'referral PDF should contain a valid PDF header');
 
   const resources = await json('/api/resources?query=lab&format=Article', { method: 'GET', token: login.body.token });
   assert(resources.status === 200, 'resources list should return 200');
@@ -328,7 +661,7 @@ try {
 
   const resourceDetail = await json('/api/resources/lib-cbc', { method: 'GET', token: login.body.token });
   assert(resourceDetail.status === 200, 'resource detail should return 200');
-  assert(resourceDetail.body.body.includes('Understanding Lab Results'), 'resource detail should include body');
+  assert(resourceDetail.body.title.includes('Understanding Lab Results'), 'resource detail should include its titled content');
 
   const resourceInteraction = await json('/api/resources/lib-cbc/interactions', {
     method: 'POST',
@@ -360,7 +693,21 @@ try {
 
   const immunizationPrintable = await json('/api/immunizations/printable', { method: 'GET', token: login.body.token });
   assert(immunizationPrintable.status === 200, 'printable immunization record should return 200');
-  assert(immunizationPrintable.body.printable === true, 'printable immunization record should be printable');
+  assert(immunizationPrintable.body.official === true, 'official immunization export should contain verified records only');
+
+  const reportedImmunization = await json('/api/immunizations', {
+    method: 'POST',
+    token: login.body.token,
+    body: { vaccine: 'Smoke Test Vaccine', date: '2026-01-15', dose: '1', provider: 'Patient reported', route: 'IM' },
+  });
+  assert(reportedImmunization.status === 202 && reportedImmunization.body.verificationStatus === 'Pending verification', 'patient immunization should await verification');
+  const verifiedImmunization = await json(`/api/immunizations/${reportedImmunization.body.id}/verification`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: { decision: 'Verified', note: 'Smoke test staff verification' },
+  });
+  assert(verifiedImmunization.status === 200 && verifiedImmunization.body.verificationStatus === 'Verified', 'authorized staff should verify a patient-reported immunization');
 
   const family = await json('/api/family', { method: 'GET', token: login.body.token });
   assert(family.status === 200, 'family access should return 200');
@@ -371,11 +718,12 @@ try {
     token: login.body.token,
     body: {
       name: 'Smoke Proxy',
+      email: 'smoke.proxy@example.test',
       relationship: 'Sibling',
       permissions: 'View Only',
     },
   });
-  assert(proxy.status === 201, 'proxy invite should return 201');
+  assert(proxy.status === 202, `proxy invite should return 202 (received ${proxy.status}: ${JSON.stringify(proxy.body)})`);
 
   const proxyPermissions = await json(`/api/family/proxies/${proxy.body.id}`, {
     method: 'PATCH',
@@ -422,8 +770,16 @@ try {
       contactPreference: 'Secure message',
     },
   });
-  assert(accessReport.status === 201, 'unauthorized access report should return 201');
+  assert(accessReport.status === 202, 'unauthorized access report should return 202');
   assert(accessReport.body.status === 'Submitted', 'unauthorized access report should be submitted');
+
+  const reviewedAccessReport = await json(`/api/family/reports/${accessReport.body.id}/status`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: { status: 'Under Review', resolution: '' },
+  });
+  assert(reviewedAccessReport.status === 200 && reviewedAccessReport.body.status === 'Under Review', 'authorized staff should review access reports');
 
   const accessPolicy = await json('/api/family/policy', { method: 'GET', token: login.body.token });
   assert(accessPolicy.status === 200, 'family access policy should return 200');
@@ -460,8 +816,9 @@ try {
     method: 'POST',
     token: login.body.token,
   });
-  assert(refill.status === 201, 'refill request should return 201');
+  assert(refill.status === 202, 'refill request should return 202');
   assert(refill.body.prescriptionId === 'rx-lisinopril', 'refill should point to prescription');
+  assert(refill.body.status === 'Pending', 'refill request should wait for staff review');
 
   const medicationRequest = await json('/api/prescriptions/medication-requests', {
     method: 'POST',
@@ -471,8 +828,25 @@ try {
       notes: 'Seasonal allergy symptoms',
     },
   });
-  assert(medicationRequest.status === 201, 'medication request should return 201');
-  assert(medicationRequest.body.status === 'Pending', 'medication request should be pending');
+  assert(medicationRequest.status === 202, 'medication request should return 202');
+  assert(medicationRequest.body.status === 'Pending', 'medication request should wait for provider review');
+
+  const refillApproval = await json(`/api/prescriptions/refill-requests/${refill.body.id}/decision`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: { decision: 'Approved' },
+  });
+  assert(refillApproval.status === 200 && refillApproval.body.status === 'Approved', 'authorized staff should approve refill requests');
+
+  const medicationApproval = await json(`/api/prescriptions/medication-requests/${medicationRequest.body.id}/decision`, {
+    method: 'PATCH',
+    token: adminLogin.body.token,
+    patientContext: patientContextId,
+    body: { decision: 'Approved', dosage: '10 mg', frequency: 'Once daily', instructions: 'Take in the evening', refillCount: 1 },
+  });
+  assert(medicationApproval.status === 200 && medicationApproval.body.request.status === 'Approved', 'authorized staff should approve medication requests');
+  assert(medicationApproval.body.prescription?.verificationStatus === 'Verified', 'approved medication request should create one verified prescription');
 
   const pharmacy = await json('/api/prescriptions/preferred-pharmacy', {
     method: 'PATCH',
@@ -488,7 +862,7 @@ try {
   assert(pharmacy.status === 200, 'preferred pharmacy update should return 200');
   assert(pharmacy.body.name === 'Main Pharmacy #100', 'preferred pharmacy should update');
 
-  const billing = await json('/api/billing', { method: 'GET', token: login.body.token });
+  let billing = await json('/api/billing', { method: 'GET', token: login.body.token });
   assert(billing.status === 200, 'billing overview should return 200');
   assert(Array.isArray(billing.body.invoices), 'billing should include invoices');
 
@@ -504,6 +878,46 @@ try {
   });
   assert(paymentMethod.status === 201, 'payment method create should return 201');
   assert(paymentMethod.body.isDefault === true, 'new payment method should be default');
+
+  const partialInvoice = billing.body.invoices.find((invoice) => invoice.id === 'INV-USER-A-ONLY');
+  assert(partialInvoice, 'billing should include private invoice for partial payment coverage');
+  const partialPayment = await json('/api/billing/payments', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      invoiceId: partialInvoice.id,
+      amount: 25,
+      paymentMethodId: paymentMethod.body.id,
+      idempotencyKey: 'smoke-partial-payment',
+    },
+  });
+  assert(partialPayment.status === 201, 'partial invoice payment should return 201');
+  assert(
+    partialPayment.body.invoices.find((invoice) => invoice.id === partialInvoice.id).status === 'Partially Paid',
+    'partial invoice payment should not mark invoice paid',
+  );
+  assert(
+    partialPayment.body.invoices.find((invoice) => invoice.id === partialInvoice.id).balanceDue === 74,
+    'partial invoice payment should update balance due',
+  );
+  const repeatedPartialPayment = await json('/api/billing/payments', {
+    method: 'POST',
+    token: login.body.token,
+    body: {
+      invoiceId: partialInvoice.id,
+      amount: 25,
+      paymentMethodId: paymentMethod.body.id,
+      idempotencyKey: 'smoke-partial-payment',
+    },
+  });
+  assert(repeatedPartialPayment.status === 201, 'idempotent payment retry should return the prior successful account state');
+  assert(
+    repeatedPartialPayment.body.invoices.find((invoice) => invoice.id === partialInvoice.id).balanceDue === 74,
+    'idempotent payment retry must not apply the payment twice',
+  );
+
+  billing = await json('/api/billing', { method: 'GET', token: login.body.token });
+  assert(billing.status === 200, 'billing overview should reload after partial payment');
 
   const invoiceToPay = billing.body.invoices.find((invoice) => invoice.status === 'Overdue' || invoice.status === 'Pending');
   assert(invoiceToPay, 'billing should include an invoice that can be paid');
@@ -645,13 +1059,15 @@ async function json(url, options) {
 }
 
 function raw(url, options = {}) {
+  const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
   return fetch(`${baseUrl}${url}`, {
     method: options.method || 'GET',
     headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.body && !multipart ? { 'Content-Type': 'application/json' } : {}),
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(options.patientContext ? { 'X-Patient-Context': options.patientContext } : {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body ? (multipart ? options.body : JSON.stringify(options.body)) : undefined,
   });
 }
 

@@ -6,7 +6,11 @@ export const portalRouter = Router();
 
 portalRouter.get('/portal', requireAuth, async (request, response, next) => {
   try {
-    response.json(await getPortalForPatient(request.auth.user, request.auth.access));
+    response.json(await getPortalForPatient(request.auth.user, request.auth.access, {
+      actor: request.auth.actor,
+      patientContexts: request.auth.patientContexts,
+      currentPatientContext: request.auth.currentPatientContext,
+    }));
   } catch (error) {
     next(error);
   }

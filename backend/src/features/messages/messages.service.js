@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { notFound } from '../../errors.js';
+import { appendAuditLog, findOwned, scopeDbToPatient, stampPatientOwnership } from '../../domain/patient-scope.js';
 import { readDb, updateDb } from '../../store.js';
+import { env } from '../../config.js';
 
-export async function listConversations({ query = '' } = {}) {
+export async function listConversations(user, { query = '', includeMessages = false } = {}) {
   const normalizedQuery = query.trim().toLowerCase();
-  const db = await readDb();
+  const db = scopeDbToPatient(await readDb(), user);
   const conversations = db.messageConversations
     .filter((conversation) => {
       if (!normalizedQuery) return true;
@@ -15,7 +17,7 @@ export async function listConversations({ query = '' } = {}) {
         conversation.preview,
       ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery));
     })
-    .map(toConversationSummary);
+    .map((conversation) => includeMessages ? toConversationDetail(conversation) : toConversationSummary(conversation));
 
   return {
     conversations,
@@ -24,19 +26,36 @@ export async function listConversations({ query = '' } = {}) {
   };
 }
 
-export async function getConversation(conversationId) {
-  const db = await readDb();
-  const conversation = db.messageConversations.find((item) => item.id === conversationId);
+export async function getConversation(user, conversationId) {
+  const db = scopeDbToPatient(await readDb(), user);
+  const conversation = findOwned(db.messageConversations, user, (item) => item.id === conversationId);
   if (!conversation) throw notFound('Conversation not found');
   return toConversationDetail(conversation);
 }
 
-export async function sendConversationMessage(conversationId, input) {
+export async function listMessageRecipients() {
+  const db = await readDb();
+  return {
+    recipients: [
+      { id: 'patient-support', name: 'Patient Support', role: 'Portal Support', department: 'Support', available: true },
+      ...(db.providers || []).filter((provider) => provider.available !== false).map((provider) => ({
+        id: provider.id,
+        name: provider.name,
+        role: provider.role || 'Care team',
+        department: provider.department || '',
+        available: true,
+      })),
+    ],
+  };
+}
+
+export async function sendConversationMessage(user, conversationId, input) {
   const result = await updateDb((db) => {
-    const conversation = db.messageConversations.find((item) => item.id === conversationId);
+    const conversation = findOwned(db.messageConversations || [], user, (item) => item.id === conversationId);
     if (!conversation) return null;
 
-    const message = createOutboundMessage(input.body, input.attachment);
+    const attachment = input.attachment ? resolveAttachment(db, user, input.attachment.fileId) : null;
+    const message = createOutboundMessage(user, input.body, attachment);
     conversation.messages ||= [];
     conversation.messages.push(message);
     conversation.preview = input.body;
@@ -46,7 +65,8 @@ export async function sendConversationMessage(conversationId, input) {
     conversation.updatedAt = new Date().toISOString();
 
     db.messages ||= [];
-    db.messages.unshift(toLegacyMessage(conversation, message));
+    db.messages.unshift(stampPatientOwnership(toLegacyMessage(conversation, message), user));
+    appendAuditLog(db, user, 'message sent', 'messageConversation', conversation.id);
     return { conversation, message };
   });
 
@@ -57,40 +77,48 @@ export async function sendConversationMessage(conversationId, input) {
   };
 }
 
-export async function createConversationMessage(input) {
+export async function createConversationMessage(user, input) {
   return updateDb((db) => {
     db.messageConversations ||= [];
     db.messages ||= [];
 
-    const conversation = {
+    const recipient = input.recipientId === 'patient-support'
+      ? { id: 'patient-support', name: 'Patient Support', role: 'Portal Support' }
+      : (db.providers || []).find((provider) => provider.id === input.recipientId && provider.available !== false);
+    if (!recipient) throw notFound('Care-team recipient not found');
+
+    const conversation = stampPatientOwnership({
       id: `conv-${randomUUID()}`,
-      participantName: 'Care Team',
-      participantRole: 'Patient Support',
+      participantName: recipient.name,
+      participantRole: recipient.role || recipient.department || 'Care team',
+      providerId: recipient.id,
       activeNow: false,
       subject: input.subject,
       preview: input.body,
       time: 'Just now',
       unread: false,
       resolved: false,
-      messages: [createOutboundMessage(input.body)],
+      messages: [createOutboundMessage(user, input.body)],
       createdAt: new Date().toISOString(),
-    };
+    }, user);
 
     db.messageConversations.unshift(conversation);
-    const legacyMessage = toLegacyMessage(conversation, conversation.messages[0]);
+    const legacyMessage = stampPatientOwnership(toLegacyMessage(conversation, conversation.messages[0]), user);
     db.messages.unshift(legacyMessage);
+    appendAuditLog(db, user, 'message thread created', 'messageConversation', conversation.id);
     return legacyMessage;
   });
 }
 
-export async function setConversationResolved(conversationId, input) {
+export async function setConversationResolved(user, conversationId, input) {
   const conversation = await updateDb((db) => {
-    const foundConversation = db.messageConversations.find((item) => item.id === conversationId);
+    const foundConversation = findOwned(db.messageConversations || [], user, (item) => item.id === conversationId);
     if (!foundConversation) return null;
 
     foundConversation.resolved = input.resolved;
     foundConversation.unread = false;
     foundConversation.updatedAt = new Date().toISOString();
+    appendAuditLog(db, user, input.resolved ? 'message thread resolved' : 'message thread reopened', 'messageConversation', foundConversation.id);
     return foundConversation;
   });
 
@@ -98,17 +126,46 @@ export async function setConversationResolved(conversationId, input) {
   return toConversationDetail(conversation);
 }
 
-function createOutboundMessage(body, attachment = null) {
-  const message = {
+export async function archiveConversation(user, conversationId) {
+  const conversation = await updateDb((db) => {
+    const foundConversation = findOwned(db.messageConversations || [], user, (item) => item.id === conversationId);
+    if (!foundConversation) return null;
+    foundConversation.archived = true;
+    foundConversation.deletedAt = new Date().toISOString();
+    foundConversation.updatedAt = foundConversation.deletedAt;
+    appendAuditLog(db, user, 'message thread archived', 'messageConversation', foundConversation.id);
+    return foundConversation;
+  });
+
+  if (!conversation) throw notFound('Conversation not found');
+  return toConversationDetail(conversation);
+}
+
+function createOutboundMessage(user, body, attachment = null) {
+  const message = stampPatientOwnership({
     id: `thread-msg-${randomUUID()}`,
-    direction: 'outbound',
+    direction: user.actorUserId ? 'inbound' : 'outbound',
+    senderUserId: user.actorUserId || user.id,
     body,
     sentAtLabel: 'Just now',
     createdAt: new Date().toISOString(),
     read: false,
-  };
+  }, user);
   if (attachment) message.attachment = attachment;
   return message;
+}
+
+function resolveAttachment(db, user, fileId) {
+  const file = findOwned(db.uploadedFiles || [], user, (item) => item.id === fileId);
+  if (!file) throw notFound('Message attachment file not found');
+  if (!file.storagePath) throw notFound('Message attachment content is not available');
+  return {
+    fileId: file.id,
+    fileName: file.fileName,
+    size: file.size,
+    mimeType: file.mimeType,
+    downloadUrl: `${env.apiBasePath}/files/${encodeURIComponent(file.id)}/download`,
+  };
 }
 
 function toLegacyMessage(conversation, message) {
