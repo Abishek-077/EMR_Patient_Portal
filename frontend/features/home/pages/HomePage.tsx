@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { InlineLoading, InlineNotification } from '@carbon/react';
 import { Add, Chat, Document, Renew } from '@carbon/icons-react';
 import type { PortalRoute } from '../../access-control';
-import { hasPermission } from '../../access-control';
 import type { HomeData, PortalData } from '../../../shared/types';
 import { homeApi } from '../api';
 import '../home.scss';
@@ -36,23 +35,17 @@ export function HomePage({
   }, []);
 
   const data = home || homeFromPortal(fallbackPortal);
-  const permissions = fallbackPortal.access.permissions;
-  const canMessage = hasPermission(permissions, 'messages.send');
-  const canRequestVisit = hasPermission(permissions, 'appointments.request');
-  const canViewRegistration = hasPermission(permissions, 'registration.view');
-  const canViewAppointments = hasPermission(permissions, 'appointments.view');
-  const canViewBilling = hasPermission(permissions, 'billing.view');
 
   return (
     <main className="portal-main dashboard-page">
       <section className="page-title dashboard-title">
         <div>
           <h1>Home</h1>
-          <p>Welcome back, {data.summary.welcomeName}. Here is your portal overview for {data.summary.overviewDate}.</p>
+          <p>Welcome back, {data.summary.welcomeName}. Your portal is synced for {data.summary.overviewDate}.</p>
         </div>
         <div className="page-actions">
-          {canMessage && <button className="secondary-action" type="button" onClick={onMessage}><Chat size={16} /> Message Care Team</button>}
-          {canRequestVisit && <button className="primary-action" type="button" onClick={onBook}><Add size={16} /> Request Visit</button>}
+          <button className="secondary-action" type="button" onClick={onMessage}><Chat size={16} /> Message Care Team</button>
+          <button className="primary-action" type="button" onClick={onBook}><Add size={16} /> Request Visit</button>
         </div>
       </section>
 
@@ -60,21 +53,21 @@ export function HomePage({
       {error && <InlineNotification kind="warning" lowContrast title="Using portal snapshot" subtitle={error} />}
 
       <section className="quick-grid" aria-label="Home next steps">
-        {canViewRegistration && <button className="quick-card quick-card--blue" type="button" onClick={() => onNavigate('registration')}>
+        <button className="quick-card quick-card--blue" type="button" onClick={() => onNavigate('registration')}>
           <Document size={29} />
           <strong>Registration Intake</strong>
           <span>{data.summary.registrationStatus} - {data.summary.registrationPercent}% complete</span>
-        </button>}
-        {canViewAppointments && <button className="quick-card" type="button" onClick={() => onNavigate('appointments')}>
+        </button>
+        <button className="quick-card" type="button" onClick={() => onNavigate('appointments')}>
           <Add size={29} />
           <strong>Appointments</strong>
           <span>{data.summary.upcomingAppointments} upcoming visit{data.summary.upcomingAppointments === 1 ? '' : 's'}</span>
-        </button>}
-        {canViewBilling && <button className="quick-card quick-card--gray" type="button" onClick={() => onNavigate('billing')}>
+        </button>
+        <button className="quick-card quick-card--gray" type="button" onClick={() => onNavigate('billing')}>
           <Document size={29} />
           <strong>Billing</strong>
           <span>${data.summary.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} outstanding</span>
-        </button>}
+        </button>
       </section>
 
       <div className="dashboard-content">
@@ -140,3 +133,4 @@ function homeFromPortal(portal: PortalData): HomeData {
     tasks: portal.tasks,
   };
 }
+
