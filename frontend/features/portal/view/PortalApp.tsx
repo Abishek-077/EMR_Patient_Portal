@@ -83,6 +83,8 @@ import {
   getPrintableImmunizations,
   getPrintablePrescriptions,
   getPrintableRecord,
+  getReferralCalendar,
+  getReferralContact,
   getReferralDetail,
   getReferralExport,
   getResourceDetail,
@@ -1565,6 +1567,24 @@ function ResourcesPage({
     }
   };
 
+  const trustedLink = (
+    resource: { sourceUrl?: string; sourceLabel?: string },
+    resourceId: string,
+    label = `Open ${resource.sourceLabel || 'official source'}`,
+  ) => resource.sourceUrl ? (
+    <a
+      className="trusted-resource-link"
+      href={resource.sourceUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => {
+        if (canInteract) void record(resourceId, 'Read trusted source');
+      }}
+    >
+      {label} <Launch size={15} />
+    </a>
+  ) : null;
+
   return (
     <main className="portal-main resources-page">
       <section className="page-title resources-title">
@@ -1588,7 +1608,10 @@ function ResourcesPage({
             <h3>{resources.featured.title}</h3>
             <p>{resources.featured.detail}</p>
             <small>{resources.featured.meta} - {resources.featured.updated}</small>
-            <button className="primary-action" type="button" onClick={() => { void onDetail(resources.featured.id); if (canInteract) void record(resources.featured.id, 'Read'); }}>{resources.featured.actionLabel}<Launch size={18} /></button>
+            <div className="resource-actions">
+              <button className="primary-action" type="button" onClick={() => { void onDetail(resources.featured.id); if (canInteract) void record(resources.featured.id, 'Read'); }}>{resources.featured.actionLabel}<Document size={18} /></button>
+              {trustedLink(resources.featured, resources.featured.id)}
+            </div>
           </article>
           <aside className="resource-media">
             <div className="resource-image resource-image--bp">
@@ -1602,7 +1625,14 @@ function ResourcesPage({
             </div>
             <h3>{resources.video.title}</h3>
             <p>{resources.video.detail}</p>
-            <footer><span>{resources.video.category}</span>{canInteract && <button type="button" aria-label="Save video" onClick={() => void toggleSaved(resources.video.id)}>{savedIds.includes(resources.video.id) ? 'Unsave' : 'Save'}</button>}</footer>
+            <footer>
+              <span>{resources.video.category}</span>
+              <div className="resource-actions">
+                <button type="button" onClick={() => { void onDetail(resources.video.id); if (canInteract) void record(resources.video.id, 'Read'); }}>View</button>
+                {canInteract && <button type="button" aria-label="Save video" onClick={() => void toggleSaved(resources.video.id)}>{savedIds.includes(resources.video.id) ? 'Unsave' : 'Save'}</button>}
+              </div>
+            </footer>
+            {trustedLink(resources.video, resources.video.id)}
           </article>
         </div>
       </section>
@@ -1612,13 +1642,16 @@ function ResourcesPage({
           <article className="resource-group" key={group.id}>
             <h2>{group.title}</h2>
             {group.items.map((item, index) => {
-              const resourceId = `${group.id}-${index}`;
+              const resourceId = item.id || `${group.id}-${index}`;
               return (
-                <button type="button" key={resourceId} onClick={() => { void onDetail(resourceId); if (canInteract) void record(resourceId, item.action); }}>
-                  <strong>{item.title}</strong>
-                  <span>{item.detail}</span>
-                  <small>{item.action}</small>
-                </button>
+                <div className="resource-group-item" key={resourceId}>
+                  <button type="button" onClick={() => { void onDetail(resourceId); if (canInteract) void record(resourceId, item.action); }}>
+                    <strong>{item.title}</strong>
+                    <span>{item.detail}</span>
+                    <small>{item.action}</small>
+                  </button>
+                  {trustedLink(item, resourceId)}
+                </div>
               );
             })}
           </article>
@@ -1644,7 +1677,13 @@ function ResourcesPage({
                   <td><strong>{item.title}</strong><small>{item.detail}</small></td>
                   <td>{item.category}</td>
                   <td>{item.updated}</td>
-                  <td><button type="button" onClick={() => { void onDetail(item.id); if (canInteract) void record(item.id, 'Read'); }}>Read</button>{canInteract && <><button type="button" onClick={() => void toggleSaved(item.id)}>{savedIds.includes(item.id) ? 'Unsave' : 'Save'}</button><button type="button" onClick={() => void onDownload(item.id)}>Download</button></>}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button type="button" onClick={() => { void onDetail(item.id); if (canInteract) void record(item.id, 'Read'); }}>Read</button>
+                      {canInteract && <><button type="button" onClick={() => void toggleSaved(item.id)}>{savedIds.includes(item.id) ? 'Unsave' : 'Save'}</button><button type="button" onClick={() => void onDownload(item.id)}>Download</button></>}
+                      {trustedLink(item, item.id, item.sourceLabel || 'Official source')}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1664,6 +1703,8 @@ function ReferralsPage({
   onCancel,
   onExport,
   onDetail,
+  onContact,
+  onCalendar,
 }: {
   referrals: PortalData['referrals'];
   canManage: boolean;
@@ -1673,6 +1714,8 @@ function ReferralsPage({
   onCancel: (referralId: string) => Promise<void>;
   onExport: () => Promise<void>;
   onDetail: (referralId: string) => Promise<void>;
+  onContact: (referralId: string) => Promise<void>;
+  onCalendar: (referralId: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState<'All Status' | 'Pending' | 'Scheduled' | 'Completed'>('All Status');
   const [requestOpen, setRequestOpen] = useState(false);
@@ -1698,7 +1741,15 @@ function ReferralsPage({
   };
 
   const runAction = async (referralId: string, action: string) => {
-    if (['Details', 'View Results', 'View Calendar', 'Contact', 'Clinic Profile'].includes(action)) {
+    if (action === 'Contact' || action === 'Clinic Profile') {
+      await onContact(referralId);
+      return;
+    }
+    if (action === 'View Calendar') {
+      await onCalendar(referralId);
+      return;
+    }
+    if (['Details', 'View Results'].includes(action)) {
       await onDetail(referralId);
       return;
     }
@@ -1747,7 +1798,16 @@ function ReferralsPage({
                   <td><strong>{row.provider}</strong><small>{row.specialty}</small></td>
                   <td><em>{row.reason}</em></td>
                   <td><span className={`referral-status referral-status--${row.status.toLowerCase()}`}>{row.status}</span></td>
-                  <td>{row.appointment && <small>{row.appointment}</small>} {row.actions.filter((action) => ['Details', 'View Results', 'View Calendar', 'Contact'].includes(action) || (canReview && action === 'Resend Request')).map((action) => <button type="button" key={action} onClick={() => void runAction(row.id, action)}>{action}</button>)} {canReview && row.status === 'Pending' && <><button type="button" onClick={() => void runAction(row.id, 'Approved')}>Approve</button><button type="button" onClick={() => void runAction(row.id, 'Rejected')}>Reject</button></>} {canReview && row.status === 'Approved' && <button type="button" onClick={() => void runAction(row.id, 'Scheduled')}>Mark scheduled</button>} {canReview && row.status === 'Scheduled' && <button type="button" onClick={() => void runAction(row.id, 'Completed')}>Complete</button>} {!canReview && canManage && row.status === 'Pending' && <button type="button" onClick={() => void runAction(row.id, 'Cancel')}>Cancel request</button>}</td>
+                  <td>
+                    {row.appointment && <small>{row.appointment}</small>}
+                    <div className="table-actions">
+                      {row.actions.filter((action) => ['Details', 'View Results', 'View Calendar', 'Contact'].includes(action) || (canReview && action === 'Resend Request')).map((action) => <button type="button" key={action} onClick={() => void runAction(row.id, action)}>{action}</button>)}
+                      {canReview && row.status === 'Pending' && <><button type="button" onClick={() => void runAction(row.id, 'Approved')}>Approve</button><button type="button" onClick={() => void runAction(row.id, 'Rejected')}>Reject</button></>}
+                      {canReview && row.status === 'Approved' && <button type="button" onClick={() => void runAction(row.id, 'Scheduled')}>Mark scheduled</button>}
+                      {canReview && row.status === 'Scheduled' && <button type="button" onClick={() => void runAction(row.id, 'Completed')}>Complete</button>}
+                      {!canReview && canManage && row.status === 'Pending' && <button type="button" onClick={() => void runAction(row.id, 'Cancel')}>Cancel request</button>}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1767,7 +1827,7 @@ function ReferralsPage({
           <p>{referrals.focus.address}</p>
           <p>{referrals.focus.phone}</p>
           <p>{referrals.focus.email}</p>
-          <button type="button" onClick={() => void onDetail(focusReferralId)}>Clinic Profile</button>
+          <button type="button" onClick={() => void runAction(focusReferralId, 'Clinic Profile')}>Clinic Profile</button>
         </aside>
       </div>
 
@@ -1923,12 +1983,12 @@ function ImmunizationsPage({
                 <td>{item.dose}</td>
                 <td>{item.provider}</td>
                 <td>{item.route}</td>
-                <td>
+                <td><div className="table-actions">
                   <button type="button" onClick={() => void onDetail(item.id)}>View</button>
                   {canManage && patientEditable && <button type="button" aria-label={`Edit ${item.vaccine}`} onClick={() => openEdit(item)}><Edit size={15} /></button>}
                   {canManage && patientEditable && <button type="button" aria-label={`Delete ${item.vaccine}`} disabled={deletingId === item.id} onClick={() => void handleDelete(item.id, item.vaccine)}><TrashCan size={15} /></button>}
                   {canVerify && pendingVerification && <><button type="button" disabled={verifyingId === item.id} onClick={() => void handleVerify(item.id, 'Verified')}>Verify</button><button type="button" disabled={verifyingId === item.id} onClick={() => void handleVerify(item.id, 'Rejected')}>Reject</button></>}
-                </td>
+                </div></td>
               </tr>;
             })}</tbody>
           </table>
@@ -1959,6 +2019,11 @@ function ImmunizationsPage({
       </ComposedModal>
     </main>
   );
+}
+
+function formatTrendReadingDate(value: string) {
+  if (!value || Number.isNaN(Date.parse(value))) return 'Date not recorded';
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function HealthTrendsPage({
@@ -2126,8 +2191,16 @@ function HealthTrendsPage({
               <p><span>Latest</span><strong>{metric.latest || metric.latestValue}</strong><small>{metric.unit}</small></p>
               {metric.averageLabel && <p><span>{metric.averageLabel}</span><strong>{metric.average}</strong></p>}
             </footer>
-            {readingsInRange(metric).map((reading) => <div className="goal-row" key={reading.id}><span>{new Date(reading.recordedAt).toLocaleDateString()}</span><strong>{reading.value} {reading.unit || metric.unit}</strong>{canManage && <><button type="button" aria-label={`Edit ${metric.label} reading`} onClick={() => openEditReading(metric, reading)}><Edit size={14} /></button><button type="button" disabled={deletingReadingId === reading.id} aria-label={`Delete ${metric.label} reading`} onClick={() => void handleDeleteReading(metric.id, reading.id)}><TrashCan size={14} /></button></>}</div>)}
-            {canManage && <button type="button" onClick={() => openAddReading(metric)}>Add {metric.label} reading</button>}
+            <div className="metric-readings">
+              {readingsInRange(metric).map((reading) => (
+                <div className="metric-reading-row" key={reading.id}>
+                  <span>{formatTrendReadingDate(reading.recordedAt)}</span>
+                  <strong>{reading.value} {reading.unit || metric.unit}</strong>
+                  {canManage && <div className="row-actions"><button type="button" aria-label={`Edit ${metric.label} reading`} title="Edit reading" onClick={() => openEditReading(metric, reading)}><Edit size={16} /></button><button type="button" disabled={deletingReadingId === reading.id} aria-label={`Delete ${metric.label} reading`} title="Delete reading" onClick={() => void handleDeleteReading(metric.id, reading.id)}><TrashCan size={16} /></button></div>}
+                </div>
+              ))}
+            </div>
+            {canManage && <button className="metric-add-button" type="button" onClick={() => openAddReading(metric)}><Add size={16} /> Add reading</button>}
           </article>
         ))}
       </section>
@@ -2140,12 +2213,11 @@ function HealthTrendsPage({
       <section className="health-goals">
         <article><h2>Health Goals Status</h2>
           {activeGoals.map((goal) => (
-            <div key={goal.id} className="goal-row">
+            <div key={goal.id} className="health-goal-row">
               <span>{goal.label}</span>
               <i><b style={{ width: `${goal.progress}%` }} /></i>
               <strong>{goal.progress}%</strong>
-              {canManage && <button type="button" aria-label={`Edit goal ${goal.label}`} onClick={() => openEditGoal(goal)}><Edit size={14} /></button>}
-              {canManage && <button type="button" aria-label={`Delete goal ${goal.label}`} disabled={deletingGoalId === goal.id} onClick={() => void handleDeleteGoal(goal.id, goal.label)}><TrashCan size={14} /></button>}
+              {canManage && <div className="row-actions"><button type="button" aria-label={`Edit goal ${goal.label}`} title="Edit goal" onClick={() => openEditGoal(goal)}><Edit size={16} /></button><button type="button" aria-label={`Delete goal ${goal.label}`} title="Delete goal" disabled={deletingGoalId === goal.id} onClick={() => void handleDeleteGoal(goal.id, goal.label)}><TrashCan size={16} /></button></div>}
             </div>
           ))}
           {!activeGoals.length && <p className="empty-appointments">No health goals set yet. Add a goal to track progress.</p>}
@@ -2372,6 +2444,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const [supportForm, setSupportForm] = useState({ subject: '', body: '' });
   const [supportNotice, setSupportNotice] = useState('');
   const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const loadPortal = useCallback(async () => {
     setIsLoading(true);
@@ -2389,7 +2462,20 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     void loadPortal();
   }, [loadPortal]);
 
+  useEffect(() => {
+    const handleUnhandledAction = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (!(reason instanceof Error)) return;
+      event.preventDefault();
+      setActionError(reason.message || 'The requested action could not be completed.');
+      console.error('Unhandled portal action', reason);
+    };
+    window.addEventListener('unhandledrejection', handleUnhandledAction);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandledAction);
+  }, []);
+
   const navigate = useCallback((nextRoute: PortalRoute) => {
+    setActionError('');
     routerNavigate(pathForRoute(nextRoute));
   }, [routerNavigate]);
 
@@ -2846,6 +2932,16 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     openPrintableView('Referral Detail', detail);
   };
 
+  const handleReferralContact = async (referralId: string) => {
+    const contact = await getReferralContact(referralId);
+    openPrintableView('Referral Clinic Profile', contact);
+  };
+
+  const handleReferralCalendar = async (referralId: string) => {
+    const calendar = await getReferralCalendar(referralId);
+    openPrintableView('Referral Appointment', calendar);
+  };
+
   const handleResourceInteraction = async (resourceId: string, action: string) => {
     await recordResourceInteraction(resourceId, action);
     await refreshPortal();
@@ -3080,6 +3176,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const currentPatient = portal.dashboard.patient;
   const permissions = portal.access.permissions;
   const activeRoute = canAccessRoute(route, permissions) ? route : firstAllowedRoute(permissions);
+  const featureError = portal.featureErrors?.[activeRoute] || '';
   const canRequestAppointments = hasPermission(permissions, 'appointments.request');
   const canManageAppointments = hasPermission(permissions, 'appointments.manage');
   const canApproveAppointments = hasPermission(permissions, 'appointments.approve');
@@ -3092,8 +3189,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const canPayBills = hasPermission(permissions, 'billing.pay');
   const canManagePaymentMethods = hasPermission(permissions, 'billing.paymentMethods.manage');
   const canUpdateProfile = hasPermission(permissions, 'profile.update');
-  const canManageFamilyAccess = hasPermission(permissions, 'family.manage');
-  const canReviewAccessReports = hasPermission(permissions, 'family.reports.review');
   const canManageReferrals = hasPermission(permissions, 'referrals.manage');
   const canReviewReferrals = hasPermission(permissions, 'referrals.review');
   const canManageNotes = hasPermission(permissions, 'records.notes.manage');
@@ -3123,6 +3218,9 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
       <PortalHeader route={activeRoute} onNavigate={navigate} onNotifications={handleNotifications} onHelp={handleHelp} patientName={currentPatient.name} permissions={permissions} patientContexts={canSelectPatientContext ? portal.patientContexts : []} currentPatientContextId={portal.currentPatientContext?.id || ''} onPatientContextChange={canSelectPatientContext ? (contextId) => void handlePatientContextChange(contextId) : undefined} />
       <div className="portal-frame">
         <PortalSidebar route={activeRoute} onNavigate={navigate} onLogout={onLogout} patient={currentPatient} permissions={permissions} />
+        <div className="portal-content">
+        {featureError && <InlineNotification className="portal-action-notification" kind="warning" lowContrast title="Some information is temporarily unavailable" subtitle={featureError} hideCloseButton />}
+        {actionError && <InlineNotification className="portal-action-notification" kind="error" lowContrast title="Action could not be completed" subtitle={actionError} onCloseButtonClick={() => setActionError('')} />}
         {activeRoute === 'home' && (
           <HomePage
             fallbackPortal={portal}
@@ -3239,25 +3337,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
           />
         )}
         {activeRoute === 'resources' && <ResourcesPage resources={portal.educationalResources} interactions={portal.resourceInteractions} onInteraction={handleResourceInteraction} onDetail={handleResourceDetail} onDownload={downloadResource} canInteract={canInteractWithResources} />}
-        {activeRoute === 'family' && (
-          <FamilyAccessPage
-            familyAccess={portal.familyAccess}
-            shareRecords={portal.preferences.shareRecords}
-            mentalHealthNotes={Boolean(portal.preferences.mentalHealthNotes)}
-            onShareRecordsChange={handleShareRecordsChange}
-            onInviteProxy={handleInviteProxy}
-            onProxyPermissionChange={handleProxyPermissionChange}
-            onResendProxy={handleResendProxy}
-            onRevokeProxy={handleRevokeProxy}
-            onSaveDependent={handleSaveDependent}
-            onDeleteDependent={handleDeleteDependent}
-            onDownloadPolicy={handleAccessPolicy}
-            onReportUnauthorized={handleUnauthorizedReport}
-            onReviewReport={handleAccessReportReview}
-            canManage={canManageFamilyAccess}
-            canReviewReports={canReviewAccessReports}
-          />
-        )}
         {activeRoute === 'referrals' && (
           <ReferralsPage
             referrals={portal.referrals}
@@ -3268,6 +3347,8 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
             onCancel={handleReferralCancel}
             onExport={handleReferralExport}
             onDetail={handleReferralDetail}
+            onContact={handleReferralContact}
+            onCalendar={handleReferralCalendar}
           />
         )}
         {activeRoute === 'immunizations' && <ImmunizationsPage
@@ -3314,6 +3395,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
         )}
         {activeRoute === 'admin' && canConfigureAccess && <AdminAccessPage canManageRoles={canManageRoles} canManageUsers={canManageUsers} />}
         {activeRoute === 'dashboard' && <Dashboard portal={portal} onBook={() => openBooking()} onNavigate={navigate} onPrintRecord={handleRecordExport} canBook={canRequestAppointments} />}
+        </div>
       </div>
 
       <ComposedModal open={bookingOpen} onClose={closeBooking} size="sm">

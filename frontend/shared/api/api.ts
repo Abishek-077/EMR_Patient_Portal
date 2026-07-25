@@ -153,8 +153,21 @@ function cachedRequest<T>(feature: string, url: string, options: RequestInit = {
   });
 }
 
-function optionalFeature<T>(allowed: boolean, feature: string, url: string, fallback: T) {
-  return allowed ? cachedRequest<T>(feature, url) : Promise.resolve(fallback);
+async function optionalFeature<T>(
+  allowed: boolean,
+  feature: string,
+  url: string,
+  fallback: T,
+  onError?: (error: unknown) => void,
+) {
+  if (!allowed) return fallback;
+  try {
+    return await cachedRequest<T>(feature, url);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) throw error;
+    onError?.(error);
+    return fallback;
+  }
 }
 
 function invalidateMutationQueries(url: string) {
@@ -403,23 +416,33 @@ export async function getPortalData(): Promise<PortalData> {
   const bootstrap = await cachedRequest<PortalBootstrap>('portal-bootstrap', '/api/portal');
   const permissions = bootstrap.access.permissions;
   const can = (...permissionIds: string[]) => permissionIds.some((permission) => permissions.includes(permission));
+  const featureErrors: Record<string, string> = {};
+  const loadOptional = <T>(allowed: boolean, feature: string, url: string, fallback: T) => optionalFeature(
+    allowed,
+    feature,
+    url,
+    fallback,
+    (error) => {
+      featureErrors[feature] = error instanceof Error ? error.message : `Could not load ${feature}.`;
+      console.error(`Could not load portal feature: ${feature}`, error);
+    },
+  );
 
-  const [dashboard, home, registration, appointments, prescriptions, billing, profile, records, trends, referrals, family, immunizations, resources, files, conversations] = await Promise.all([
+  const [dashboard, home, registration, appointments, prescriptions, billing, profile, records, trends, referrals, immunizations, resources, files, conversations] = await Promise.all([
     cachedRequest<PortalData['dashboard']>('dashboard', '/api/patient/dashboard'),
     cachedRequest<HomeData>('home', '/api/patient/home'),
-    optionalFeature<RegistrationIntake | undefined>(can('registration.view', 'registration.viewOwn'), 'registration', '/api/registration', undefined),
-    optionalFeature<Record<string, unknown>>(can('appointments.view', 'appointments.viewOwn'), 'appointments', '/api/appointments?status=all&pageSize=500', emptyAppointmentsFeature()),
-    optionalFeature<Record<string, unknown>>(can('prescriptions.view', 'prescriptions.viewOwn'), 'prescriptions', '/api/prescriptions', emptyPrescriptionsFeature()),
-    optionalFeature<BillingData>(can('billing.view', 'billing.viewOwn'), 'billing', '/api/billing', emptyBillingFeature()),
-    optionalFeature<Record<string, unknown>>(can('profile.view', 'profile.viewOwn'), 'profile', '/api/profile', emptyProfileFeature()),
-    optionalFeature<Record<string, unknown>>(can('records.view', 'records.viewOwn'), 'records', '/api/records?type=all', emptyRecordsFeature()),
-    optionalFeature<Record<string, unknown>>(can('trends.view', 'trends.viewOwn'), 'trends', '/api/trends?range=12m', emptyTrendsFeature()),
-    optionalFeature<Record<string, unknown>>(can('referrals.view', 'referrals.viewOwn'), 'referrals', '/api/referrals?pageSize=500', emptyReferralsFeature()),
-    optionalFeature<Record<string, unknown>>(can('family.view', 'family.viewOwn'), 'family', '/api/family', emptyFamilyFeature()),
-    optionalFeature<Record<string, unknown>>(can('immunizations.view', 'immunizations.viewOwn'), 'immunizations', '/api/immunizations', emptyImmunizationsFeature()),
-    optionalFeature<Record<string, unknown>>(can('resources.view'), 'resources', '/api/resources?pageSize=500', emptyResourcesFeature()),
-    optionalFeature<Record<string, unknown>>(can('files.manage', 'files.manageOwn', 'records.view', 'records.viewOwn', 'messages.view', 'messages.viewOwn'), 'files', '/api/files', { files: [] }),
-    optionalFeature<Record<string, unknown>>(can('messages.view', 'messages.viewOwn'), 'messages', '/api/messages/conversations?include=messages', { conversations: [] }),
+    loadOptional<RegistrationIntake | undefined>(can('registration.view', 'registration.viewOwn'), 'registration', '/api/registration', undefined),
+    loadOptional<Record<string, unknown>>(can('appointments.view', 'appointments.viewOwn'), 'appointments', '/api/appointments?status=all&pageSize=500', emptyAppointmentsFeature()),
+    loadOptional<Record<string, unknown>>(can('prescriptions.view', 'prescriptions.viewOwn'), 'prescriptions', '/api/prescriptions', emptyPrescriptionsFeature()),
+    loadOptional<BillingData>(can('billing.view', 'billing.viewOwn'), 'billing', '/api/billing', emptyBillingFeature()),
+    loadOptional<Record<string, unknown>>(can('profile.view', 'profile.viewOwn'), 'profile', '/api/profile', emptyProfileFeature()),
+    loadOptional<Record<string, unknown>>(can('records.view', 'records.viewOwn'), 'records', '/api/records?type=all', emptyRecordsFeature()),
+    loadOptional<Record<string, unknown>>(can('trends.view', 'trends.viewOwn'), 'trends', '/api/trends?range=12m', emptyTrendsFeature()),
+    loadOptional<Record<string, unknown>>(can('referrals.view', 'referrals.viewOwn'), 'referrals', '/api/referrals?pageSize=500', emptyReferralsFeature()),
+    loadOptional<Record<string, unknown>>(can('immunizations.view', 'immunizations.viewOwn'), 'immunizations', '/api/immunizations', emptyImmunizationsFeature()),
+    loadOptional<Record<string, unknown>>(can('resources.view'), 'resources', '/api/resources?pageSize=500', emptyResourcesFeature()),
+    loadOptional<Record<string, unknown>>(can('files.manage', 'files.manageOwn', 'records.view', 'records.viewOwn', 'messages.view', 'messages.viewOwn'), 'files', '/api/files', { files: [] }),
+    loadOptional<Record<string, unknown>>(can('messages.view', 'messages.viewOwn'), 'messages', '/api/messages/conversations?include=messages', { conversations: [] }),
   ]);
 
   const appointmentData = appointments as unknown as {
@@ -445,7 +468,7 @@ export async function getPortalData(): Promise<PortalData> {
     clinicalNotes: PortalData['clinicalNotes'];
     documents: PortalData['documents'];
   };
-  const familyData = family as unknown as { familyAccess: FamilyAccessData; preferences: PortalData['preferences'] };
+  const familyData = emptyFamilyFeature();
   const immunizationData = immunizations as unknown as { records: PortalData['immunizationRecords'] };
   const resourceData = resources as unknown as PortalData['educationalResources'] & { interactions?: PortalData['resourceInteractions'] };
   const fileData = files as unknown as { files: UploadedFile[] };
@@ -465,6 +488,7 @@ export async function getPortalData(): Promise<PortalData> {
 
   return {
     ...bootstrap,
+    featureErrors,
     patient: dashboard.patient,
     preferences: familyData.preferences || { shareRecords: false, mentalHealthNotes: false },
     tasks: home.tasks || [],
@@ -848,6 +872,16 @@ export function getReferralExport() {
 
 export function getReferralDetail(referralId: string) {
   const url = `/api/referrals/${encodeURIComponent(referralId)}`;
+  return cachedRequest<unknown>('referrals', url);
+}
+
+export function getReferralContact(referralId: string) {
+  const url = `/api/referrals/${encodeURIComponent(referralId)}/contact`;
+  return cachedRequest<unknown>('referrals', url);
+}
+
+export function getReferralCalendar(referralId: string) {
+  const url = `/api/referrals/${encodeURIComponent(referralId)}/calendar`;
   return cachedRequest<unknown>('referrals', url);
 }
 

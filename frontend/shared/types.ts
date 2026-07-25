@@ -343,6 +343,8 @@ export type EducationalResources = {
     updated: string;
     actionLabel: string;
     imageUrl?: string;
+    sourceUrl?: string;
+    sourceLabel?: string;
   };
   video: {
     id: string;
@@ -351,14 +353,19 @@ export type EducationalResources = {
     duration: string;
     category: string;
     imageUrl?: string;
+    sourceUrl?: string;
+    sourceLabel?: string;
   };
   groups: Array<{
     id: string;
     title: string;
     items: Array<{
+      id?: string;
       title: string;
       detail: string;
       action: string;
+      sourceUrl?: string;
+      sourceLabel?: string;
     }>;
   }>;
   library: Array<{
@@ -368,6 +375,8 @@ export type EducationalResources = {
     category: string;
     updated: string;
     format: string;
+    sourceUrl?: string;
+    sourceLabel?: string;
   }>;
 };
 
@@ -748,6 +757,7 @@ export type PortalData = {
     permissions: string[];
     status: AccessStatus;
   };
+  featureErrors?: Record<string, string>;
   patient: Patient;
   preferences: {
     shareRecords: boolean;

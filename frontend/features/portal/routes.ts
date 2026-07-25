@@ -35,7 +35,6 @@ export const portalRouteManifests: PortalRouteManifest[] = [
   manifest('Health Trends', 'trends', Renew),
   manifest('Immunizations', 'immunizations', Hospital),
   manifest('Resources', 'resources', Document),
-  manifest('Family Access', 'family', UserAvatar),
   manifest('Profile', 'profile', UserAvatar),
   manifest('Admin Access', 'admin', Settings, false),
 ];

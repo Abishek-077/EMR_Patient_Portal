@@ -662,6 +662,7 @@ try {
   const resourceDetail = await json('/api/resources/lib-cbc', { method: 'GET', token: login.body.token });
   assert(resourceDetail.status === 200, 'resource detail should return 200');
   assert(resourceDetail.body.title.includes('Understanding Lab Results'), 'resource detail should include its titled content');
+  assert(resourceDetail.body.sourceUrl.startsWith('https://medlineplus.gov/'), 'resource detail should include a trusted patient education source');
 
   const resourceInteraction = await json('/api/resources/lib-cbc/interactions', {
     method: 'POST',
@@ -674,6 +675,7 @@ try {
   const groupedResourceDetail = await json('/api/resources/condition-guides-0', { method: 'GET', token: login.body.token });
   assert(groupedResourceDetail.status === 200, 'grouped resource detail should return 200');
   assert(groupedResourceDetail.body.title === 'Type 2 Diabetes Basics', 'grouped resource detail should resolve generated id');
+  assert(groupedResourceDetail.body.sourceUrl.startsWith('https://medlineplus.gov/'), 'grouped resource detail should include a trusted source');
 
   const groupedResourceInteraction = await json('/api/resources/condition-guides-0/interactions', {
     method: 'POST',
