@@ -164,7 +164,11 @@ import type {
   TrendGoalInput,
   TrendReadingInput,
 } from '../../../shared/types';
-import { openPrintableView } from '../controller/printable-view';
+import {
+  openPrintableView,
+  subscribeToPrintableView,
+} from '../controller/printable-view';
+import type { PrintableViewRequest } from '../controller/printable-view';
 import {
   defaultPharmacyForm,
   emptyEmergencyContact,
@@ -180,6 +184,7 @@ import {
   medicationSummaryFromPortal,
 } from '../model/formatters';
 import { IconButton, PortalHeader, PortalSidebar } from './layout/PortalLayout';
+import { PrintablePreviewModal } from './PrintablePreviewModal';
 import { AdminAccessPage } from './pages/AdminAccessPage';
 import { BillingPage, type BillingPaymentInput } from './pages/BillingPage';
 import { HomePage } from '../../home';
@@ -1567,6 +1572,17 @@ function ResourcesPage({
     }
   };
 
+  const openResource = async (resourceId: string, action = 'Read') => {
+    try {
+      // Recording an interaction invalidates resource queries. Resolve the
+      // detail first so that invalidation cannot abort the view request.
+      await onDetail(resourceId);
+      if (canInteract) await record(resourceId, action);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not open this resource.');
+    }
+  };
+
   const trustedLink = (
     resource: { sourceUrl?: string; sourceLabel?: string },
     resourceId: string,
@@ -1609,7 +1625,7 @@ function ResourcesPage({
             <p>{resources.featured.detail}</p>
             <small>{resources.featured.meta} - {resources.featured.updated}</small>
             <div className="resource-actions">
-              <button className="primary-action" type="button" onClick={() => { void onDetail(resources.featured.id); if (canInteract) void record(resources.featured.id, 'Read'); }}>{resources.featured.actionLabel}<Document size={18} /></button>
+              <button className="primary-action" type="button" onClick={() => void openResource(resources.featured.id)}>{resources.featured.actionLabel}<Document size={18} /></button>
               {trustedLink(resources.featured, resources.featured.id)}
             </div>
           </article>
@@ -1628,7 +1644,7 @@ function ResourcesPage({
             <footer>
               <span>{resources.video.category}</span>
               <div className="resource-actions">
-                <button type="button" onClick={() => { void onDetail(resources.video.id); if (canInteract) void record(resources.video.id, 'Read'); }}>View</button>
+                <button type="button" onClick={() => void openResource(resources.video.id)}>View</button>
                 {canInteract && <button type="button" aria-label="Save video" onClick={() => void toggleSaved(resources.video.id)}>{savedIds.includes(resources.video.id) ? 'Unsave' : 'Save'}</button>}
               </div>
             </footer>
@@ -1645,7 +1661,7 @@ function ResourcesPage({
               const resourceId = item.id || `${group.id}-${index}`;
               return (
                 <div className="resource-group-item" key={resourceId}>
-                  <button type="button" onClick={() => { void onDetail(resourceId); if (canInteract) void record(resourceId, item.action); }}>
+                  <button type="button" onClick={() => void openResource(resourceId, item.action)}>
                     <strong>{item.title}</strong>
                     <span>{item.detail}</span>
                     <small>{item.action}</small>
@@ -1679,7 +1695,7 @@ function ResourcesPage({
                   <td>{item.updated}</td>
                   <td>
                     <div className="table-actions">
-                      <button type="button" onClick={() => { void onDetail(item.id); if (canInteract) void record(item.id, 'Read'); }}>Read</button>
+                      <button type="button" onClick={() => void openResource(item.id)}>Read</button>
                       {canInteract && <><button type="button" onClick={() => void toggleSaved(item.id)}>{savedIds.includes(item.id) ? 'Unsave' : 'Save'}</button><button type="button" onClick={() => void onDownload(item.id)}>Download</button></>}
                       {trustedLink(item, item.id, item.sourceLabel || 'Official source')}
                     </div>
@@ -2445,6 +2461,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const [supportNotice, setSupportNotice] = useState('');
   const [supportSubmitting, setSupportSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [printableView, setPrintableView] = useState<PrintableViewRequest | null>(null);
 
   const loadPortal = useCallback(async () => {
     setIsLoading(true);
@@ -2473,6 +2490,8 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     window.addEventListener('unhandledrejection', handleUnhandledAction);
     return () => window.removeEventListener('unhandledrejection', handleUnhandledAction);
   }, []);
+
+  useEffect(() => subscribeToPrintableView(setPrintableView), []);
 
   const navigate = useCallback((nextRoute: PortalRoute) => {
     setActionError('');
@@ -3504,6 +3523,11 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
           <Button disabled={!canSendMessages || supportSubmitting || !supportForm.subject.trim() || !supportForm.body.trim()} onClick={() => void handleSupportSubmit()}>{supportSubmitting ? 'Submitting...' : canSendMessages ? 'Submit support request' : 'Restricted'}</Button>
         </ModalFooter>
       </ComposedModal>
+
+      <PrintablePreviewModal
+        preview={printableView}
+        onClose={() => setPrintableView(null)}
+      />
     </div>
   );
 }
