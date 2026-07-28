@@ -387,7 +387,7 @@ export const seedData = {
       relationship: 'Spouse',
       primaryPhone: '(555) 012-9988',
       alternatePhone: '-',
-      access: 'Full Proxy',
+      access: 'Full access',
     },
     {
       id: 'contact-robert-wilson',
@@ -522,43 +522,6 @@ export const seedData = {
       { id: 'lib-cardio', title: 'Low-Impact Cardio for Joint Health', detail: '15-minute home workout designed for arthritis patients.', category: 'Physical Therapy', updated: 'Nov 02, 2023', format: 'Video' },
       { id: 'lib-wound', title: 'Post-Operative Wound Care', detail: 'Essential steps for home care and identifying infection.', category: 'Surgery Recovery', updated: 'Sep 28, 2023', format: 'PDF' },
     ],
-  },
-  referrals: {
-    summary: { active: 12, pending: 3, completedYear: 8 },
-    rows: [
-      { id: 'ref-9923', issuedDate: 'Oct 24, 2023', provider: 'Dr. Sarah Jenkins', specialty: 'Cardiology', reason: 'Echocardiogram follow-up post hypertension review', status: 'Pending', actions: ['Details', 'Contact'] },
-      { id: 'ref-8841', issuedDate: 'Oct 12, 2023', provider: 'Dr. Aris Thorne', specialty: 'Dermatology', reason: 'Skin biopsy (Left forearm lesion)', status: 'Scheduled', actions: ['View Calendar'], appointment: 'Appt: Nov 05' },
-      { id: 'ref-7220', issuedDate: 'Sep 28, 2023', provider: 'City General Imaging', specialty: 'Radiology', reason: 'Standard MRI - Cranial without contrast', status: 'Completed', actions: ['View Results'] },
-      { id: 'ref-6119', issuedDate: 'Sep 15, 2023', provider: 'Dr. Lydia Vance', specialty: 'Endocrinology', reason: 'T1D Management review', status: 'Pending', actions: ['Resend Request'] },
-    ],
-    focus: {
-      caseId: 'REF-9923',
-      title: 'Referral Detail Focus',
-      note: '"Patient presents with chronic hypertension. Referral to Cardiology is imperative for diagnostic imaging and baseline assessment of cardiac function. Priority: Routine."',
-      attachment: 'Initial_Lab_Results.pdf',
-      lastUpdate: 'Yesterday, 04:30 PM',
-      clinic: 'Metro Health Cardiology',
-      address: '122 Medical Plaza, Ste 400',
-      phone: '(555) 010-8892',
-      email: 'referrals@metrocardio.org',
-    },
-  },
-  familyAccess: {
-    proxies: [
-      { id: 'proxy-sarah', name: 'Sarah Johnson', relationship: 'Spouse', permissions: 'Full Access', status: 'Active' },
-      { id: 'proxy-michael', name: 'Michael Johnson', relationship: 'Adult Child', permissions: 'View Only', status: 'Active' },
-      { id: 'proxy-david', name: 'David Reed', relationship: 'Legal Proxy', permissions: 'Awaiting Acceptance', status: 'Invitation Pending' },
-    ],
-    accounts: [
-      { id: 'acct-emma', name: 'Emma Johnson', detail: 'Minor Child - Last Visit: Oct 12', access: 'Full Access' },
-      { id: 'acct-robert', name: 'Robert Smith', detail: 'Elderly Parent - Last Visit: Nov 05', access: 'View Only' },
-    ],
-    activity: [
-      { id: 'access-sarah', title: 'Sarah Johnson logged in', detail: 'Today, 09:12 AM - Viewed Lab Results', tone: 'success' },
-      { id: 'access-rx', title: 'New prescription view', detail: "Oct 24, 02:45 PM - Emma Johnson's Profile", tone: 'info' },
-      { id: 'access-revoked', title: 'Access updated', detail: "Oct 20, 11:00 AM - Revoked 'Billing' for Michael J.", tone: 'neutral' },
-    ],
-    reports: [],
   },
   resourceInteractions: [],
   uploadedFiles: [
