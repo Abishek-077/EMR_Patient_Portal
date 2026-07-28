@@ -39,7 +39,6 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   addBillingPaymentMethod,
-  addDependent,
   addEmergencyContact,
   addImmunizationAlert,
   addImmunizationRecord,
@@ -51,13 +50,11 @@ import {
   cancelAppointment,
   cancelAppointmentRequest,
   cancelMedicationRequest,
-  cancelReferral,
   checkDrugInteractions,
   createInvoice,
   createPaymentSession,
   createVisitRequest,
   deleteEmergencyContact,
-  deleteDependent,
   deleteFile,
   deleteImmunizationRecord,
   deleteInvoice,
@@ -67,7 +64,6 @@ import {
   dismissImmunizationAlert,
   downloadApiExport,
   generateStatement,
-  getAccessPolicy,
   getAppointmentDetail,
   getAppointmentsExport,
   getBillingResource,
@@ -83,31 +79,21 @@ import {
   getPrintableImmunizations,
   getPrintablePrescriptions,
   getPrintableRecord,
-  getReferralCalendar,
-  getReferralContact,
-  getReferralDetail,
-  getReferralExport,
   getResourceDetail,
   getResources,
   getTrendsExport,
-  inviteProxy,
   markAllNotificationsRead,
   markNotificationRead,
   payFullBalance,
   payInvoice,
   recordResourceInteraction,
-  reportUnauthorizedAccess,
   requestNewMedication,
   requestPrescriptionRefill,
-  requestReferral,
-  reviewAccessReport,
   reviewAppointmentRequest,
   reviewMedicationRequest,
   reviewRefillRequest,
-  resendProxyInvite,
   rescheduleAppointment,
   resolveConversation,
-  revokeProxy,
   saveProfileSettings,
   scheduleAppointment,
   selectPatientContext,
@@ -120,18 +106,13 @@ import {
   deleteBillingPaymentMethod,
   downloadFile,
   downloadResource,
-  updateDependent,
   updateEmergencyContact,
-  updateFamilyPrivacy,
   updateImmunizationRecord,
   updateInsuranceDetails,
   updateInvoice,
   updateFileMetadata,
   updatePatientNote,
   updatePreferredPharmacy,
-  updateProxyPermissions,
-  updateReferralAction,
-  updateReferralStatus,
   updateTrendGoal,
   updateTrendReading,
   updateVisitRequest,
@@ -1944,162 +1925,6 @@ function ResourcesPage({
   );
 }
 
-function ReferralsPage({
-  referrals,
-  canManage,
-  canReview,
-  onRequest,
-  onAction,
-  onCancel,
-  onExport,
-  onDetail,
-  onContact,
-  onCalendar,
-}: {
-  referrals: PortalData['referrals'];
-  canManage: boolean;
-  canReview: boolean;
-  onRequest: (input: { provider?: string; specialty: string; reason: string; clinic?: string }) => Promise<void>;
-  onAction: (referralId: string, action: string, note?: string) => Promise<void>;
-  onCancel: (referralId: string) => Promise<void>;
-  onExport: () => Promise<void>;
-  onDetail: (referralId: string) => Promise<void>;
-  onContact: (referralId: string) => Promise<void>;
-  onCalendar: (referralId: string) => Promise<void>;
-}) {
-  const [filter, setFilter] = useState<'All Status' | 'Pending' | 'Scheduled' | 'Completed'>('All Status');
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [referralForm, setReferralForm] = useState({ provider: 'Care Team', specialty: 'General Medicine', reason: '', clinic: '' });
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState('');
-  const visibleRows = referrals.rows.filter((row) => filter === 'All Status' || row.status === filter);
-  const focusReferralId = referrals.rows.find((row) => row.id.replace(/\D/g, '') === referrals.focus.caseId.replace(/\D/g, ''))?.id
-    || referrals.rows[0]?.id
-    || referrals.focus.caseId.toLowerCase().replace(/^ref-?/, 'ref-');
-
-  const submitReferral = async () => {
-    if (!referralForm.specialty.trim() || !referralForm.reason.trim()) return;
-    setSaving(true);
-    try {
-      await onRequest(referralForm);
-      setRequestOpen(false);
-      setReferralForm({ provider: 'Care Team', specialty: 'General Medicine', reason: '', clinic: '' });
-      setNotice('Referral request submitted.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const runAction = async (referralId: string, action: string) => {
-    if (action === 'Contact' || action === 'Clinic Profile') {
-      await onContact(referralId);
-      return;
-    }
-    if (action === 'View Calendar') {
-      await onCalendar(referralId);
-      return;
-    }
-    if (['Details', 'View Results'].includes(action)) {
-      await onDetail(referralId);
-      return;
-    }
-    if (action === 'Cancel') {
-      if (!canManage || !window.confirm('Cancel this referral request?')) return;
-      await onCancel(referralId);
-      setNotice('Referral request cancelled.');
-      return;
-    }
-    if (!canReview) return;
-    await onAction(referralId, action, `${action} from patient portal`);
-    setNotice(`${action} recorded.`);
-  };
-
-  return (
-    <main className="portal-main referrals-page">
-      <section className="records-title">
-        <div><p>Health Records / Referrals</p><h1>Referrals Tracking</h1></div>
-        {canManage && <button className="primary-action" type="button" onClick={() => setRequestOpen(true)}><Add size={18} /> Request New Referral</button>}
-      </section>
-      {notice && <p className="workspace-notice">{notice}</p>}
-
-      <section className="referral-summary">
-        <article><span>Active Referrals</span><strong>{referrals.summary.active}</strong></article>
-        <article><span>Pending Action</span><strong>{String(referrals.rows.filter((row) => row.status === 'Pending').length).padStart(2, '0')}</strong></article>
-        <article><span>Completed (Year)</span><strong>{String(referrals.summary.completedYear).padStart(2, '0')}</strong></article>
-        <button type="button" onClick={onExport}><Download size={20} /> Export Report</button>
-      </section>
-
-      <section className="portal-table-panel">
-        <header>
-          <h2>Filters:</h2>
-          <div className="segmented-filter">
-            {(['All Status', 'Pending', 'Scheduled', 'Completed'] as const).map((status) => (
-              <button className={filter === status ? 'active' : ''} type="button" key={status} onClick={() => setFilter(status)}>{status}</button>
-            ))}
-          </div>
-        </header>
-        <div className="portal-table-wrap">
-          <table>
-            <thead><tr><th>Issued Date</th><th>Specialist / Provider</th><th>Reason / Clinic</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {visibleRows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.issuedDate}</td>
-                  <td><strong>{row.provider}</strong><small>{row.specialty}</small></td>
-                  <td><em>{row.reason}</em></td>
-                  <td><span className={`referral-status referral-status--${row.status.toLowerCase()}`}>{row.status}</span></td>
-                  <td>
-                    {row.appointment && <small>{row.appointment}</small>}
-                    <div className="table-actions">
-                      {row.actions.filter((action) => ['Details', 'View Results', 'View Calendar', 'Contact'].includes(action) || (canReview && action === 'Resend Request')).map((action) => <button type="button" key={action} onClick={() => void runAction(row.id, action)}>{action}</button>)}
-                      {canReview && row.status === 'Pending' && <><button type="button" onClick={() => void runAction(row.id, 'Approved')}>Approve</button><button type="button" onClick={() => void runAction(row.id, 'Rejected')}>Reject</button></>}
-                      {canReview && row.status === 'Approved' && <button type="button" onClick={() => void runAction(row.id, 'Scheduled')}>Mark scheduled</button>}
-                      {canReview && row.status === 'Scheduled' && <button type="button" onClick={() => void runAction(row.id, 'Completed')}>Complete</button>}
-                      {!canReview && canManage && row.status === 'Pending' && <button type="button" onClick={() => void runAction(row.id, 'Cancel')}>Cancel request</button>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <div className="referral-detail-grid">
-        <section className="referral-focus">
-          <h2>{referrals.focus.title}</h2>
-          <p>Ongoing specialist communication for Case #{referrals.focus.caseId}</p>
-          <blockquote><strong>Physician's Clinical Note</strong>{referrals.focus.note}</blockquote>
-          <div><article><span>Attachment</span><button className="link-button" type="button" onClick={() => void onDetail(focusReferralId)}>{referrals.focus.attachment}</button></article><article><span>Last Update</span><strong>{referrals.focus.lastUpdate}</strong></article></div>
-        </section>
-        <aside className="clinic-card">
-          <strong>{referrals.focus.clinic}</strong>
-          <p>{referrals.focus.address}</p>
-          <p>{referrals.focus.phone}</p>
-          <p>{referrals.focus.email}</p>
-          <button type="button" onClick={() => void runAction(focusReferralId, 'Clinic Profile')}>Clinic Profile</button>
-        </aside>
-      </div>
-
-      <ComposedModal open={requestOpen} onClose={() => setRequestOpen(false)} size="sm">
-        <ModalHeader title="Request new referral" />
-        <ModalBody>
-          <Stack gap={5}>
-            <TextInput id="referral-provider" labelText="Provider" value={referralForm.provider} onChange={(event) => setReferralForm((current) => ({ ...current, provider: event.target.value }))} />
-            <TextInput id="referral-specialty" labelText="Specialty" value={referralForm.specialty} onChange={(event) => setReferralForm((current) => ({ ...current, specialty: event.target.value }))} />
-            <TextInput id="referral-clinic" labelText="Clinic" value={referralForm.clinic} onChange={(event) => setReferralForm((current) => ({ ...current, clinic: event.target.value }))} />
-            <TextArea id="referral-reason" labelText="Reason" value={referralForm.reason} onChange={(event) => setReferralForm((current) => ({ ...current, reason: event.target.value }))} />
-          </Stack>
-        </ModalBody>
-        <ModalFooter>
-          <Button kind="secondary" onClick={() => setRequestOpen(false)}>Cancel</Button>
-          <Button disabled={saving || !referralForm.specialty.trim() || !referralForm.reason.trim()} onClick={submitReferral}>{saving ? 'Submitting...' : 'Submit referral'}</Button>
-        </ModalFooter>
-      </ComposedModal>
-    </main>
-  );
-}
-
 function ImmunizationsPage({
   records,
   onBook,
@@ -2457,7 +2282,7 @@ function HealthTrendsPage({
       {(trends.labComparison || []).length > 0 && (
         <section className="portal-table-panel">
           <header><h2>Recent Lab Comparison</h2><span>Baseline vs. latest results</span></header>
-          <div className="portal-table-wrap"><table><thead><tr><th>Test Parameter</th><th>Baseline</th><th>Current</th><th>Change</th><th>Status</th></tr></thead><tbody>{trends.labComparison.map((lab) => <tr key={lab.parameter}><td>{lab.parameter}</td><td>{lab.baseline}</td><td>{lab.current}</td><td>{lab.change}</td><td><span className={`referral-status referral-status--${lab.status.toLowerCase()}`}>{lab.status}</span></td></tr>)}</tbody></table></div>
+          <div className="portal-table-wrap"><table><thead><tr><th>Test Parameter</th><th>Baseline</th><th>Current</th><th>Change</th><th>Status</th></tr></thead><tbody>{trends.labComparison.map((lab) => <tr key={lab.parameter}><td>{lab.parameter}</td><td>{lab.baseline}</td><td>{lab.current}</td><td>{lab.change}</td><td><span className={`trend-status trend-status--${lab.status.toLowerCase()}`}>{lab.status}</span></td></tr>)}</tbody></table></div>
         </section>
       )}
       <section className="health-goals">
@@ -2510,220 +2335,6 @@ function HealthTrendsPage({
           </Button>
         </ModalFooter>
       </ComposedModal>
-    </main>
-  );
-}
-
-function FamilyAccessPage({
-  familyAccess,
-  shareRecords,
-  mentalHealthNotes,
-  onShareRecordsChange,
-  onInviteProxy,
-  onProxyPermissionChange,
-  onResendProxy,
-  onRevokeProxy,
-  onSaveDependent,
-  onDeleteDependent,
-  onDownloadPolicy,
-  onReportUnauthorized,
-  onReviewReport,
-  canManage,
-  canReviewReports,
-}: {
-  familyAccess: PortalData['familyAccess'];
-  shareRecords: boolean;
-  mentalHealthNotes: boolean;
-  onShareRecordsChange: (input: { shareRecords?: boolean; mentalHealthNotes?: boolean }) => Promise<void>;
-  onInviteProxy: (input: { name: string; email: string; relationship: string; permissions: string }) => Promise<PortalData['familyAccess']['proxies'][number]>;
-  onProxyPermissionChange: (proxyId: string, permissions: string) => Promise<void>;
-  onResendProxy: (proxyId: string) => Promise<void>;
-  onRevokeProxy: (proxyId: string) => Promise<void>;
-  onSaveDependent: (input: { name: string; relationship: string; detail?: string; access?: string }, dependentId?: string) => Promise<void>;
-  onDeleteDependent: (dependentId: string) => Promise<void>;
-  onDownloadPolicy: () => Promise<void>;
-  onReportUnauthorized: (summary: string) => Promise<void>;
-  onReviewReport: (reportId: string, status: 'Under Review' | 'Resolved' | 'Dismissed') => Promise<void>;
-  canManage: boolean;
-  canReviewReports: boolean;
-}) {
-  const [savingShare, setSavingShare] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [dependentOpen, setDependentOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [proxyForm, setProxyForm] = useState({ name: '', email: '', relationship: 'Spouse', permissions: 'View Only' });
-  const [dependentForm, setDependentForm] = useState({ name: '', relationship: 'Dependent', detail: 'Last Visit: Pending', access: 'View Only' });
-  const [editingDependentId, setEditingDependentId] = useState('');
-  const [reportSummary, setReportSummary] = useState('');
-  const [inviteSubmitting, setInviteSubmitting] = useState(false);
-  const [inviteError, setInviteError] = useState('');
-  const [confirmation, setConfirmation] = useState<WorkflowConfirmationData | null>(null);
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-  const [confirmBusy, setConfirmBusy] = useState(false);
-  const [confirmError, setConfirmError] = useState('');
-
-  const toggleShareRecords = async () => {
-    setSavingShare(true);
-    try {
-      await onShareRecordsChange({ shareRecords: !shareRecords });
-    } finally {
-      setSavingShare(false);
-    }
-  };
-
-  const toggleMentalHealthNotes = async () => {
-    setSavingShare(true);
-    try {
-      await onShareRecordsChange({ mentalHealthNotes: !mentalHealthNotes });
-    } finally {
-      setSavingShare(false);
-    }
-  };
-
-  const submitProxy = async () => {
-    if (inviteSubmitting) return;
-    setInviteSubmitting(true);
-    setInviteError('');
-    try {
-      const submittedForm = { ...proxyForm };
-      const proxy = await onInviteProxy(submittedForm);
-      setInviteOpen(false);
-      setProxyForm({ name: '', email: '', relationship: 'Spouse', permissions: 'View Only' });
-      setConfirmation({
-        kind: 'proxy',
-        heading: 'Proxy invitation sent',
-        referenceId: proxy.id,
-        status: proxy.status || 'Invitation pending',
-        details: [
-          { label: 'Proxy', value: submittedForm.name },
-          { label: 'Relationship', value: submittedForm.relationship },
-          { label: 'Permissions', value: submittedForm.permissions },
-          { label: 'Delivery', value: `Invitation queued for ${submittedForm.email}` },
-        ],
-        nextSteps: 'The invitation must be accepted before access is granted. You can review, resend, or revoke it from this page.',
-        nextActionLabel: 'Review family access',
-        onNextAction: () => setConfirmation(null),
-      });
-    } catch (error) {
-      setInviteError(error instanceof Error ? error.message : 'Could not send the proxy invitation.');
-    } finally {
-      setInviteSubmitting(false);
-    }
-  };
-
-  const requestProxyRevocation = (proxy: PortalData['familyAccess']['proxies'][number]) => {
-    setConfirmError('');
-    setConfirmAction({
-      heading: proxy.status === 'Active' ? 'Revoke proxy access?' : 'Cancel proxy invitation?',
-      description: proxy.status === 'Active'
-        ? 'This person will no longer be able to access your portal information. The action is recorded in the access history.'
-        : 'The invitation link will stop working and can no longer be accepted.',
-      itemLabel: `${proxy.name} — ${proxy.permissions}`,
-      confirmLabel: proxy.status === 'Active' ? 'Revoke access' : 'Cancel invitation',
-      onConfirm: async () => {
-        setConfirmBusy(true);
-        setConfirmError('');
-        try {
-          await onRevokeProxy(proxy.id);
-          setConfirmAction(null);
-          setNotice(proxy.status === 'Active' ? `${proxy.name} access revoked.` : `${proxy.name} invitation cancelled.`);
-        } catch (error) {
-          setConfirmError(error instanceof Error ? error.message : 'Could not update proxy access.');
-        } finally {
-          setConfirmBusy(false);
-        }
-      },
-    });
-  };
-
-  const submitDependent = async () => {
-    await onSaveDependent(dependentForm, editingDependentId || undefined);
-    setDependentOpen(false);
-    setEditingDependentId('');
-    setDependentForm({ name: '', relationship: 'Dependent', detail: 'Last Visit: Pending', access: 'View Only' });
-    setNotice(editingDependentId ? 'Dependent updated.' : 'Dependent added.');
-  };
-
-  const openAddDependent = () => {
-    setEditingDependentId('');
-    setDependentForm({ name: '', relationship: 'Dependent', detail: 'Last Visit: Pending', access: 'View Only' });
-    setDependentOpen(true);
-  };
-
-  const openEditDependent = (account: PortalData['familyAccess']['accounts'][number]) => {
-    setEditingDependentId(account.id);
-    setDependentForm({ name: account.name, relationship: account.relationship || 'Dependent', detail: account.detail, access: account.access });
-    setDependentOpen(true);
-  };
-
-  const removeDependent = async (account: PortalData['familyAccess']['accounts'][number]) => {
-    if (!window.confirm(`Remove ${account.name} from delegated accounts?`)) return;
-    try {
-      await onDeleteDependent(account.id);
-      setNotice(`${account.name} removed.`);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not remove dependent.');
-    }
-  };
-
-  const submitReport = async () => {
-    await onReportUnauthorized(reportSummary);
-    setReportOpen(false);
-    setReportSummary('');
-    setNotice('Unauthorized access report submitted.');
-  };
-
-  return (
-    <main className="portal-main family-page">
-      <section className="records-title"><div><h1>Family & Proxy Access</h1><p>Manage who can view your healthcare information and which accounts you are authorized to manage on behalf of others. All access is logged for your security.</p></div></section>
-      {notice && <p className="workspace-notice" role="status" aria-live="polite">{notice}</p>}
-      <div className="family-grid">
-        <section className="portal-table-panel">
-          <header><h2>Access to My Records</h2>{canManage && <button className="primary-action" type="button" onClick={() => setInviteOpen(true)}><Add size={17} /> Invite Proxy</button>}</header>
-          <div className="portal-table-wrap"><table><thead><tr><th>Proxy Name</th><th>Relationship</th><th>Permissions</th><th>Actions</th></tr></thead><tbody>{familyAccess.proxies.map((proxy) => <tr key={proxy.id}><td><strong>{proxy.name}</strong><small>{proxy.status !== 'Active' ? proxy.status : ''}</small></td><td>{proxy.relationship}</td><td>{proxy.status === 'Active' ? <select disabled={!canManage} value={proxy.permissions} onChange={(event) => void onProxyPermissionChange(proxy.id, event.target.value)}><option>Full Access</option><option>View Only</option><option>Billing Only</option></select> : <em>{proxy.permissions}</em>}</td><td>{canManage ? proxy.status === 'Active' ? <button type="button" onClick={() => requestProxyRevocation(proxy)}>Revoke</button> : <><button type="button" onClick={() => void onResendProxy(proxy.id)}>Resend</button><button type="button" onClick={() => requestProxyRevocation(proxy)}>Cancel</button></> : <span>View only</span>}</td></tr>)}</tbody></table></div>
-        </section>
-        <aside className="accounts-access">
-          <h2>Accounts I Access</h2>
-          {familyAccess.accounts.map((account) => <article key={account.id}><strong>{account.name}</strong><span>{account.detail}</span><b>{account.access}</b>{canManage && <><button type="button" onClick={() => openEditDependent(account)}>Edit</button><button type="button" onClick={() => void removeDependent(account)}>Delete</button></>}</article>)}
-          {canManage && <button type="button" onClick={openAddDependent}>Request access to another account</button>}
-        </aside>
-      </div>
-      <section className="access-activity">
-        <h2>Recent Access Activity</h2>
-        <div>{familyAccess.activity.map((item) => <p key={item.id} className={`activity-dot activity-dot--${item.tone}`}><strong>{item.title}</strong><span>{item.detail}</span></p>)}</div>
-        <button className="link-button" type="button" onClick={() => openPrintableView('Security Audit Trail', familyAccess.activity)}>View full security audit trail</button>
-      </section>
-      {(familyAccess.reports || []).length > 0 && <section className="portal-table-panel">
-        <header><h2>Unauthorized access reports</h2></header>
-        <div className="portal-table-wrap"><table><thead><tr><th>Submitted</th><th>Concern</th><th>Status</th><th>Action</th></tr></thead><tbody>{(familyAccess.reports || []).map((report) => <tr key={report.id}><td>{report.createdAt}</td><td>{report.summary}</td><td>{report.status}</td><td>{canReviewReports ? <><button type="button" onClick={() => void onReviewReport(report.id, 'Under Review')}>Review</button><button type="button" onClick={() => void onReviewReport(report.id, 'Resolved')}>Resolve</button><button type="button" onClick={() => void onReviewReport(report.id, 'Dismissed')}>Dismiss</button></> : <span>{report.contactPreference}</span>}</td></tr>)}</tbody></table></div>
-      </section>}
-      <section className="privacy-settings">
-        <div><h2>Global Privacy Settings</h2><p>Manage universal visibility for all proxies.</p></div>
-        <label><input type="checkbox" checked={shareRecords} disabled={!canManage || savingShare} onChange={toggleShareRecords} /> Share HIV/STI Results<span>{shareRecords ? 'Currently Enabled' : 'Currently Disabled'}</span></label>
-        <label><input type="checkbox" checked={mentalHealthNotes} disabled={!canManage || savingShare} onChange={toggleMentalHealthNotes} /> Share Mental Health Notes<span>{mentalHealthNotes ? 'Enabled' : 'Strict Privacy Mode'}</span></label>
-      </section>
-      <footer className="family-footer"><Information size={22} /><p>Proxy access is tracked in this demo. Protected health information must be handled according to organizational privacy and security policies.</p><button type="button" onClick={onDownloadPolicy}>Download Access Policy</button><button type="button" onClick={() => setReportOpen(true)}>Report Unauthorized Access</button></footer>
-
-      <ComposedModal open={inviteOpen} onClose={() => setInviteOpen(false)} size="sm">
-        <ModalHeader title="Invite proxy" />
-        <ModalBody><Stack gap={5}><TextInput id="proxy-name" labelText="Name *" value={proxyForm.name} onChange={(event) => setProxyForm((current) => ({ ...current, name: event.target.value }))} /><TextInput id="proxy-email" type="email" labelText="Invitation email *" value={proxyForm.email} onChange={(event) => setProxyForm((current) => ({ ...current, email: event.target.value }))} /><TextInput id="proxy-relationship" labelText="Relationship *" value={proxyForm.relationship} onChange={(event) => setProxyForm((current) => ({ ...current, relationship: event.target.value }))} /><TextInput id="proxy-permissions" labelText="Permissions *" value={proxyForm.permissions} onChange={(event) => setProxyForm((current) => ({ ...current, permissions: event.target.value }))} /><OperationStatus busy={inviteSubmitting} busyLabel="Sending invitation…" error={inviteError} /></Stack></ModalBody>
-        <ModalFooter><Button kind="secondary" disabled={inviteSubmitting} onClick={() => setInviteOpen(false)}>Cancel</Button><Button disabled={inviteSubmitting || !proxyForm.name.trim() || !/^\S+@\S+\.\S+$/.test(proxyForm.email)} onClick={submitProxy}>{inviteSubmitting ? 'Sending…' : 'Send invite'}</Button></ModalFooter>
-      </ComposedModal>
-
-      <ComposedModal open={dependentOpen} onClose={() => setDependentOpen(false)} size="sm">
-        <ModalHeader title={editingDependentId ? 'Edit dependent' : 'Add dependent'} />
-        <ModalBody><Stack gap={5}><TextInput id="dependent-name" labelText="Name" value={dependentForm.name} onChange={(event) => setDependentForm((current) => ({ ...current, name: event.target.value }))} /><TextInput id="dependent-relationship" labelText="Relationship" value={dependentForm.relationship} onChange={(event) => setDependentForm((current) => ({ ...current, relationship: event.target.value }))} /><TextInput id="dependent-detail" labelText="Detail" value={dependentForm.detail} onChange={(event) => setDependentForm((current) => ({ ...current, detail: event.target.value }))} /></Stack></ModalBody>
-        <ModalFooter><Button kind="secondary" onClick={() => setDependentOpen(false)}>Cancel</Button><Button disabled={!dependentForm.name.trim()} onClick={submitDependent}>{editingDependentId ? 'Update dependent' : 'Add dependent'}</Button></ModalFooter>
-      </ComposedModal>
-
-      <ComposedModal open={reportOpen} onClose={() => setReportOpen(false)} size="sm">
-        <ModalHeader title="Report unauthorized access" />
-        <ModalBody><TextArea id="unauthorized-report" labelText="What happened?" value={reportSummary} onChange={(event) => setReportSummary(event.target.value)} /></ModalBody>
-        <ModalFooter><Button kind="secondary" onClick={() => setReportOpen(false)}>Cancel</Button><Button disabled={!reportSummary.trim()} onClick={submitReport}>Submit report</Button></ModalFooter>
-      </ComposedModal>
-      <WorkflowConfirmation confirmation={confirmation} onClose={() => setConfirmation(null)} />
-      <ConfirmActionModal action={confirmAction} busy={confirmBusy} error={confirmError} onClose={() => !confirmBusy && setConfirmAction(null)} />
     </main>
   );
 }
@@ -3258,46 +2869,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     await downloadOrOpen('Health Trends Export', `/api/trends/export?range=${encodeURIComponent(range)}&format=csv`, `health-trends-${range}.csv`);
   };
 
-  const handleReferralRequest = async (input: { provider?: string; specialty: string; reason: string; clinic?: string }) => {
-    await requestReferral(input);
-    await refreshPortal();
-  };
-
-  const handleReferralAction = async (referralId: string, action: string, note?: string) => {
-    if (['Approved', 'Rejected', 'Scheduled', 'Completed'].includes(action)) {
-      const reason = action === 'Rejected' ? window.prompt('Reason for rejection:')?.trim() : note || '';
-      if (action === 'Rejected' && !reason) throw new Error('A rejection reason is required.');
-      await updateReferralStatus(referralId, action as 'Approved' | 'Rejected' | 'Scheduled' | 'Completed', reason);
-    } else {
-      await updateReferralAction(referralId, action, note);
-    }
-    await refreshPortal();
-  };
-
-  const handleReferralCancel = async (referralId: string) => {
-    await cancelReferral(referralId);
-    await refreshPortal();
-  };
-
-  const handleReferralExport = async () => {
-    await downloadOrOpen('Referral Report', '/api/referrals/export?format=pdf', 'referrals.pdf');
-  };
-
-  const handleReferralDetail = async (referralId: string) => {
-    const detail = await getReferralDetail(referralId);
-    openPrintableView('Referral Detail', detail);
-  };
-
-  const handleReferralContact = async (referralId: string) => {
-    const contact = await getReferralContact(referralId);
-    openPrintableView('Referral Clinic Profile', contact);
-  };
-
-  const handleReferralCalendar = async (referralId: string) => {
-    const calendar = await getReferralCalendar(referralId);
-    openPrintableView('Referral Appointment', calendar);
-  };
-
   const handleResourceInteraction = async (resourceId: string, action: string) => {
     await recordResourceInteraction(resourceId, action);
     await refreshPortal();
@@ -3400,59 +2971,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     await refreshPortal();
   };
 
-  const handleShareRecordsChange = async (input: { shareRecords?: boolean; mentalHealthNotes?: boolean }) => {
-    await updateFamilyPrivacy(input);
-    await refreshPortal();
-  };
-
-  const handleInviteProxy = async (input: { name: string; email: string; relationship: string; permissions: string }) => {
-    const proxy = await inviteProxy(input);
-    await refreshPortal();
-    return proxy;
-  };
-
-  const handleProxyPermissionChange = async (proxyId: string, permissions: string) => {
-    await updateProxyPermissions(proxyId, permissions);
-    await refreshPortal();
-  };
-
-  const handleResendProxy = async (proxyId: string) => {
-    await resendProxyInvite(proxyId);
-    await refreshPortal();
-  };
-
-  const handleRevokeProxy = async (proxyId: string) => {
-    await revokeProxy(proxyId);
-    await refreshPortal();
-  };
-
-  const handleSaveDependent = async (input: { name: string; relationship: string; detail?: string; access?: string }, dependentId?: string) => {
-    if (dependentId) await updateDependent(dependentId, input);
-    else await addDependent(input);
-    await refreshPortal();
-  };
-
-  const handleDeleteDependent = async (dependentId: string) => {
-    await deleteDependent(dependentId);
-    await refreshPortal();
-  };
-
-  const handleAccessPolicy = async () => {
-    const policy = await getAccessPolicy();
-    openPrintableView('Proxy Access Policy', policy);
-  };
-
-  const handleUnauthorizedReport = async (summary: string) => {
-    await reportUnauthorizedAccess({ summary });
-    await refreshPortal();
-  };
-
-  const handleAccessReportReview = async (reportId: string, status: 'Under Review' | 'Resolved' | 'Dismissed') => {
-    const resolution = status === 'Under Review' ? '' : window.prompt('Resolution note:')?.trim() || '';
-    await reviewAccessReport(reportId, status, resolution);
-    await refreshPortal();
-  };
-
   const handleNotifications = async () => {
     setNotificationOpen(true);
     setNotificationsLoading(true);
@@ -3546,8 +3064,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const canPayBills = hasPermission(permissions, 'billing.pay');
   const canManagePaymentMethods = hasPermission(permissions, 'billing.paymentMethods.manage');
   const canUpdateProfile = hasPermission(permissions, 'profile.update');
-  const canManageReferrals = hasPermission(permissions, 'referrals.manage');
-  const canReviewReferrals = hasPermission(permissions, 'referrals.review');
   const canManageNotes = hasPermission(permissions, 'records.notes.manage');
   const canManageFiles = hasPermission(permissions, 'files.manage');
   const canManageTrends = hasPermission(permissions, 'trends.manage');
@@ -3555,8 +3071,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const canVerifyImmunizations = hasPermission(permissions, 'immunizations.verify');
   const canInteractWithResources = hasPermission(permissions, 'resources.interact');
   const canManageNotifications = hasPermission(permissions, 'notifications.manage');
-  const canManageFamily = hasPermission(permissions, 'family.manage');
-  const canReviewFamilyReports = hasPermission(permissions, 'family.reports.review');
   const canSelectPatientContext = hasPermission(permissions, 'patients.context.select');
   const canConfigureAccess = hasPermission(permissions, 'admin.access.view');
   const canManageRoles = hasPermission(permissions, 'admin.access.manage');
@@ -3698,40 +3212,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
             canManageInvoices={hasPermission(permissions, 'billing.invoices.manage')}
           />
         )}
-        {activeRoute === 'family' && (
-          <FamilyAccessPage
-            familyAccess={portal.familyAccess}
-            shareRecords={portal.preferences.shareRecords}
-            mentalHealthNotes={Boolean(portal.preferences.mentalHealthNotes)}
-            onShareRecordsChange={handleShareRecordsChange}
-            onInviteProxy={handleInviteProxy}
-            onProxyPermissionChange={handleProxyPermissionChange}
-            onResendProxy={handleResendProxy}
-            onRevokeProxy={handleRevokeProxy}
-            onSaveDependent={handleSaveDependent}
-            onDeleteDependent={handleDeleteDependent}
-            onDownloadPolicy={handleAccessPolicy}
-            onReportUnauthorized={handleUnauthorizedReport}
-            onReviewReport={handleAccessReportReview}
-            canManage={canManageFamily}
-            canReviewReports={canReviewFamilyReports}
-          />
-        )}
         {activeRoute === 'resources' && <ResourcesPage resources={portal.educationalResources} interactions={portal.resourceInteractions} onInteraction={handleResourceInteraction} onDetail={handleResourceDetail} onDownload={downloadResource} canInteract={canInteractWithResources} />}
-        {activeRoute === 'referrals' && (
-          <ReferralsPage
-            referrals={portal.referrals}
-            canManage={canManageReferrals}
-            canReview={canReviewReferrals}
-            onRequest={handleReferralRequest}
-            onAction={handleReferralAction}
-            onCancel={handleReferralCancel}
-            onExport={handleReferralExport}
-            onDetail={handleReferralDetail}
-            onContact={handleReferralContact}
-            onCalendar={handleReferralCalendar}
-          />
-        )}
         {activeRoute === 'immunizations' && <ImmunizationsPage
           records={portal.immunizationRecords}
           onBook={() => openBooking({ service: 'Immunization visit', department: 'Primary Care', reason: 'Immunization appointment' })}

@@ -242,12 +242,12 @@ export type DashboardActivity = {
 
 export type DashboardAttentionItem = {
   id: string;
-  type: 'refill' | 'referral' | 'appointment' | 'billing';
+  type: 'refill' | 'appointment' | 'billing';
   title: string;
   detail: string;
   status: string;
   tone: 'warning' | 'error' | 'pending';
-  target: 'prescriptions' | 'referrals' | 'appointments' | 'billing';
+  target: 'prescriptions' | 'appointments' | 'billing';
   actionLabel: string;
   referenceId: string;
 };
@@ -393,66 +393,6 @@ export type EducationalResources = {
     format: string;
     sourceUrl?: string;
     sourceLabel?: string;
-  }>;
-};
-
-export type ReferralsData = {
-  summary: {
-    active: number;
-    pending: number;
-    completedYear: number;
-  };
-  rows: Array<{
-    id: string;
-    issuedDate: string;
-    provider: string;
-    specialty: string;
-    reason: string;
-    status: 'Pending' | 'Approved' | 'Scheduled' | 'Completed' | 'Rejected' | 'Cancelled';
-    actions: string[];
-    appointment?: string;
-  }>;
-  focus: {
-    caseId: string;
-    title: string;
-    note: string;
-    attachment: string;
-    lastUpdate: string;
-    clinic: string;
-    address: string;
-    phone: string;
-    email: string;
-  };
-};
-
-export type FamilyAccessData = {
-  proxies: Array<{
-    id: string;
-    name: string;
-    relationship: string;
-    permissions: string;
-    status: string;
-    email?: string;
-  }>;
-  accounts: Array<{
-    id: string;
-    name: string;
-    detail: string;
-    access: string;
-    relationship?: string;
-  }>;
-  activity: Array<{
-    id: string;
-    title: string;
-    detail: string;
-    tone: 'success' | 'info' | 'neutral';
-  }>;
-  reports?: Array<{
-    id: string;
-    summary: string;
-    contactPreference: string;
-    status: string;
-    createdAt: string;
   }>;
 };
 
@@ -800,8 +740,6 @@ export type PortalData = {
   immunizations: Immunization[];
   immunizationRecords: ImmunizationRecords;
   educationalResources: EducationalResources;
-  referrals: ReferralsData;
-  familyAccess: FamilyAccessData;
   healthTrends: HealthTrendsData;
   messages: Message[];
   messageConversations: MessageConversation[];

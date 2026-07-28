@@ -97,7 +97,7 @@ export function AccessibleFormError({
 }
 
 export type WorkflowConfirmationData = {
-  kind: 'appointment' | 'refill' | 'payment' | 'proxy';
+  kind: 'appointment' | 'refill' | 'payment';
   heading: string;
   referenceId: string;
   status: string;
@@ -225,10 +225,6 @@ const helpCategories = [
   {
     title: 'Bills and payments',
     items: ['Choose a saved payment method and review the NPR amount before submitting.', 'A payment reference appears after processing.'],
-  },
-  {
-    title: 'Family and proxy access',
-    items: ['Invitations expire and do not grant access until accepted.', 'You can review permissions or revoke access from Family Access.'],
   },
   {
     title: 'Technical support',

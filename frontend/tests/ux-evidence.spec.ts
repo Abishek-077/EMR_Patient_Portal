@@ -197,7 +197,7 @@ test.describe.serial('UX laws and Nielsen evidence', () => {
     await expect(reply).toHaveValue('');
   });
 
-  test('status hierarchy, consistent shell, and four workflow confirmations remain real and data-driven', async ({ page }) => {
+  test('status hierarchy, consistent shell, and workflow confirmations remain real and data-driven', async ({ page }) => {
     await openRoute(page, '/billing', 'von-restorff-statuses');
     await expect(page.getByText('Paid', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Overdue', { exact: true }).first()).toBeVisible();
@@ -214,14 +214,6 @@ test.describe.serial('UX laws and Nielsen evidence', () => {
     await openRoute(page, '/dashboard', 'dashboard-attention-center');
     await expect(page.getByText('billing-balance')).toHaveCount(0);
 
-    await openRoute(page, '/family', 'portal-shell');
-    await page.getByRole('button', { name: 'Invite Proxy' }).click();
-    await page.locator('#proxy-name').fill('Evidence Proxy');
-    await page.locator('#proxy-email').fill('evidence.proxy@example.test');
-    await page.getByRole('button', { name: 'Send invite' }).click();
-    const proxyConfirmation = page.locator('[data-evidence-id="proxy-workflow-confirmation"]');
-    await expect(proxyConfirmation).toContainText('Proxy invitation sent');
-    await expect(proxyConfirmation).toContainText('Invitation');
   });
 
   test('categorized help is accessible from the familiar header', async ({ page }) => {
@@ -233,7 +225,6 @@ test.describe.serial('UX laws and Nielsen evidence', () => {
     await expect(help.getByRole('heading', { name: 'Secure messages' })).toBeVisible();
     await expect(help.getByRole('heading', { name: 'Prescriptions and refills' })).toBeVisible();
     await expect(help.getByRole('heading', { name: 'Bills and payments' })).toBeVisible();
-    await expect(help.getByRole('heading', { name: 'Family and proxy access' })).toBeVisible();
     await expect(help.getByText('This portal is not for urgent care.')).toBeVisible();
     await capture(page, 'help-documentation', `${NIELSEN_DIR}/20-help-documentation.png`);
   });

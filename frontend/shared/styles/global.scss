@@ -3689,7 +3689,7 @@ p {
   color: var(--o3-blue);
 }
 
-.referral-status {
+.trend-status {
   display: inline-block;
   padding: 0.25rem 0.55rem;
   background: #e0e0e0;
@@ -3697,20 +3697,17 @@ p {
   text-transform: uppercase;
 }
 
-.referral-status--pending,
-.referral-status--attention {
+.trend-status--attention {
   background: #ffd7d9;
   color: #a2191f;
 }
 
-.referral-status--scheduled,
-.referral-status--elevated {
+.trend-status--elevated {
   background: #d0e2ff;
   color: #0043ce;
 }
 
-.referral-status--completed,
-.referral-status--normal {
+.trend-status--normal {
   background: #defbe6;
   color: #0e772e;
 }

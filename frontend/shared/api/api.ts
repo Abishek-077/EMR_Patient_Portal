@@ -13,7 +13,6 @@ import type {
   BillingStatement,
   ClinicalNote,
   EmergencyContact,
-  FamilyAccessData,
   HomeData,
   ImmunizationCompletedRecord,
   ImmunizationAlert,
@@ -179,7 +178,6 @@ function invalidateMutationQueries(url: string) {
   queryCache.invalidate([scope, 'home']);
   queryCache.invalidate([scope, 'dashboard']);
   queryCache.invalidate([scope, 'notifications']);
-  if (feature === 'preferences') queryCache.invalidate([scope, 'family']);
 }
 
 function emptyAppointmentsFeature() {
@@ -222,18 +220,6 @@ function emptyRecordsFeature() {
 
 function emptyTrendsFeature() {
   return { summary: { withinRange: 0, attentionRequired: 0, updates: [] }, metrics: [], labComparison: [], goals: [] };
-}
-
-function emptyReferralsFeature() {
-  return {
-    summary: { active: 0, pending: 0, completedYear: 0 },
-    rows: [],
-    focus: { caseId: '', title: '', note: '', attachment: '', lastUpdate: '', clinic: '', address: '', phone: '', email: '' },
-  };
-}
-
-function emptyFamilyFeature() {
-  return { familyAccess: { proxies: [], accounts: [], activity: [], reports: [] }, preferences: { shareRecords: false, mentalHealthNotes: false } };
 }
 
 function emptyImmunizationsFeature() {
@@ -428,7 +414,7 @@ export async function getPortalData(): Promise<PortalData> {
     },
   );
 
-  const [dashboard, home, registration, appointments, prescriptions, billing, profile, records, trends, referrals, immunizations, resources, family, files, conversations] = await Promise.all([
+  const [dashboard, home, registration, appointments, prescriptions, billing, profile, records, trends, immunizations, resources, files, conversations] = await Promise.all([
     cachedRequest<PortalData['dashboard']>('dashboard', '/api/patient/dashboard'),
     cachedRequest<HomeData>('home', '/api/patient/home'),
     loadOptional<RegistrationIntake | undefined>(can('registration.view', 'registration.viewOwn'), 'registration', '/api/registration', undefined),
@@ -438,10 +424,8 @@ export async function getPortalData(): Promise<PortalData> {
     loadOptional<Record<string, unknown>>(can('profile.view', 'profile.viewOwn'), 'profile', '/api/profile', emptyProfileFeature()),
     loadOptional<Record<string, unknown>>(can('records.view', 'records.viewOwn'), 'records', '/api/records?type=all', emptyRecordsFeature()),
     loadOptional<Record<string, unknown>>(can('trends.view', 'trends.viewOwn'), 'trends', '/api/trends?range=12m', emptyTrendsFeature()),
-    loadOptional<Record<string, unknown>>(can('referrals.view', 'referrals.viewOwn'), 'referrals', '/api/referrals?pageSize=500', emptyReferralsFeature()),
     loadOptional<Record<string, unknown>>(can('immunizations.view', 'immunizations.viewOwn'), 'immunizations', '/api/immunizations', emptyImmunizationsFeature()),
     loadOptional<Record<string, unknown>>(can('resources.view'), 'resources', '/api/resources?pageSize=500', emptyResourcesFeature()),
-    loadOptional<Record<string, unknown>>(can('family.view', 'family.viewOwn'), 'family', '/api/family', emptyFamilyFeature()),
     loadOptional<Record<string, unknown>>(can('files.manage', 'files.manageOwn', 'records.view', 'records.viewOwn', 'messages.view', 'messages.viewOwn'), 'files', '/api/files', { files: [] }),
     loadOptional<Record<string, unknown>>(can('messages.view', 'messages.viewOwn'), 'messages', '/api/messages/conversations?include=messages', { conversations: [] }),
   ]);
@@ -469,7 +453,6 @@ export async function getPortalData(): Promise<PortalData> {
     clinicalNotes: PortalData['clinicalNotes'];
     documents: PortalData['documents'];
   };
-  const familyData = family as unknown as ReturnType<typeof emptyFamilyFeature>;
   const immunizationData = immunizations as unknown as { records: PortalData['immunizationRecords'] };
   const resourceData = resources as unknown as PortalData['educationalResources'] & { interactions?: PortalData['resourceInteractions'] };
   const fileData = files as unknown as { files: UploadedFile[] };
@@ -491,7 +474,7 @@ export async function getPortalData(): Promise<PortalData> {
     ...bootstrap,
     featureErrors,
     patient: dashboard.patient,
-    preferences: familyData.preferences || { shareRecords: false, mentalHealthNotes: false },
+    preferences: { shareRecords: false, mentalHealthNotes: false },
     tasks: home.tasks || [],
     providers: appointmentData.providers || [],
     appointmentSlots: appointmentData.appointmentSlots || [],
@@ -524,8 +507,6 @@ export async function getPortalData(): Promise<PortalData> {
     })),
     immunizationRecords: immunizationData.records || emptyImmunizationsFeature().records as PortalData['immunizationRecords'],
     educationalResources,
-    referrals: referrals as unknown as PortalData['referrals'],
-    familyAccess: familyData.familyAccess || emptyFamilyFeature().familyAccess as FamilyAccessData,
     healthTrends: trends as unknown as PortalData['healthTrends'],
     messages: [],
     messageConversations: conversationData.conversations || [],
@@ -853,90 +834,6 @@ export function getTrendsExport(range = '12m') {
   return request<unknown>(`/api/trends/export?range=${encodeURIComponent(range)}`);
 }
 
-export function requestReferral(input: { provider?: string; specialty: string; reason: string; clinic?: string }) {
-  return request<PortalData['referrals']['rows'][number]>('/api/referrals', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateReferralAction(referralId: string, action: string, note = '') {
-  return request<PortalData['referrals']['rows'][number]>(`/api/referrals/${referralId}/action`, {
-    method: 'PATCH',
-    body: JSON.stringify({ action, note }),
-  });
-}
-
-export function getReferralExport() {
-  return request<unknown>('/api/referrals/export');
-}
-
-export function getReferralDetail(referralId: string) {
-  const url = `/api/referrals/${encodeURIComponent(referralId)}`;
-  return cachedRequest<unknown>('referrals', url);
-}
-
-export function getReferralContact(referralId: string) {
-  const url = `/api/referrals/${encodeURIComponent(referralId)}/contact`;
-  return cachedRequest<unknown>('referrals', url);
-}
-
-export function getReferralCalendar(referralId: string) {
-  const url = `/api/referrals/${encodeURIComponent(referralId)}/calendar`;
-  return cachedRequest<unknown>('referrals', url);
-}
-
-export function inviteProxy(input: { name: string; email: string; relationship: string; permissions: string }) {
-  return request<FamilyAccessData['proxies'][number]>('/api/family/proxies', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateProxyPermissions(proxyId: string, permissions: string) {
-  return request<FamilyAccessData['proxies'][number]>(`/api/family/proxies/${proxyId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ permissions }),
-  });
-}
-
-export function resendProxyInvite(proxyId: string) {
-  return request<FamilyAccessData['proxies'][number]>(`/api/family/proxies/${proxyId}/resend`, {
-    method: 'POST',
-  });
-}
-
-export function revokeProxy(proxyId: string) {
-  return request<FamilyAccessData['proxies'][number]>(`/api/family/proxies/${proxyId}`, {
-    method: 'DELETE',
-  });
-}
-
-export function addDependent(input: { name: string; relationship: string; detail?: string; access?: string }) {
-  return request<FamilyAccessData['accounts'][number]>('/api/family/dependents', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateFamilyPrivacy(input: { shareRecords?: boolean; mentalHealthNotes?: boolean }) {
-  return request<PortalData['preferences']>('/api/family/privacy', {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
-}
-
-export function reportUnauthorizedAccess(input: { summary: string; contactPreference?: string }) {
-  return request<{ id: string; status: string }>('/api/family/reports', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function getAccessPolicy() {
-  return cachedRequest<unknown>('family', '/api/family/policy');
-}
-
 export function recordResourceInteraction(resourceId: string, action: string) {
   return request<PortalData['resourceInteractions'][number]>(`/api/resources/${encodeURIComponent(resourceId)}/interactions`, {
     method: 'POST',
@@ -1234,13 +1131,6 @@ export function reviewRefillRequest(requestId: string, decision: 'Approved' | 'R
   });
 }
 
-export function updateReferralStatus(referralId: string, status: 'Approved' | 'Rejected' | 'Scheduled' | 'Completed' | 'Cancelled', reason = '') {
-  return request<PortalData['referrals']['rows'][number]>(`/api/referrals/${encodeURIComponent(referralId)}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status, reason }),
-  });
-}
-
 export function verifyImmunization(recordId: string, decision: 'Verified' | 'Rejected', note = '') {
   return request<ImmunizationCompletedRecord>(`/api/immunizations/${encodeURIComponent(recordId)}/verification`, {
     method: 'PATCH',
@@ -1252,21 +1142,6 @@ export function addVerifiedImmunization(input: ImmunizationRecordInput) {
   return request<ImmunizationCompletedRecord>('/api/immunizations/verified', {
     method: 'POST',
     body: JSON.stringify(input),
-  });
-}
-
-export function reviewAccessReport(reportId: string, status: 'Under Review' | 'Resolved' | 'Dismissed', resolution = '') {
-  return request<{ id: string; status: string }>(`/api/family/reports/${encodeURIComponent(reportId)}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status, resolution }),
-  });
-}
-
-// ── Referrals extra ─────────────────────────────────────────────────────────
-
-export function cancelReferral(referralId: string) {
-  return request<PortalData['referrals']['rows'][number]>(`/api/referrals/${encodeURIComponent(referralId)}`, {
-    method: 'DELETE',
   });
 }
 
@@ -1282,19 +1157,4 @@ export function listConversations(query = '') {
   const params = query ? `?query=${encodeURIComponent(query)}` : '';
   const url = `/api/messages/conversations${params}`;
   return cachedRequest<{ conversations: MessageConversation[]; activeConversationId: string | null; total: number }>('messages', url);
-}
-
-// ── Family extra ────────────────────────────────────────────────────────────
-
-export function updateDependent(dependentId: string, input: { name: string; relationship: string; detail?: string; access?: string }) {
-  return request<FamilyAccessData['accounts'][number]>(`/api/family/dependents/${encodeURIComponent(dependentId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
-}
-
-export function deleteDependent(dependentId: string) {
-  return request<FamilyAccessData['accounts'][number]>(`/api/family/dependents/${encodeURIComponent(dependentId)}`, {
-    method: 'DELETE',
-  });
 }
