@@ -66,7 +66,7 @@ export function HomePage({
         <button className="quick-card quick-card--gray" type="button" onClick={() => onNavigate('billing')}>
           <Document size={29} />
           <strong>Billing</strong>
-          <span>${data.summary.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} outstanding</span>
+          <span>{new Intl.NumberFormat('en-NP', { style: 'currency', currency: 'NPR' }).format(data.summary.outstandingBalance)} outstanding</span>
         </button>
       </section>
 
@@ -126,11 +126,10 @@ function homeFromPortal(portal: PortalData): HomeData {
       label: action.label,
       detail: action.detail,
       target: action.target,
-      priority: action.priority,
+      priority: action.target === 'appointments' ? 'primary' : 'secondary',
     })),
     upcomingAppointments: portal.dashboard.upcomingAppointments,
     recentActivity: portal.dashboard.recentActivity,
     tasks: portal.tasks,
   };
 }
-
