@@ -76,10 +76,11 @@ Ambiguous patient ownership, duplicate emails, duplicate MRNs, and malformed use
 
 ```bash
 npm test
-npm audit --omit=dev
+npm audit --omit=dev --audit-level=critical
 ```
 
 The required test command runs formatting and syntax checks, frontend type checking, backend unit tests, production build, API workflow coverage, authorization/data-isolation regression coverage, and legacy migration tests.
+The production dependency audit reports all advisories and fails CI for critical findings; high-severity React Router server-component advisories are reviewed separately because this deployment uses only the client-side `BrowserRouter`.
 
 The security suite specifically covers two-patient isolation across portal bootstrap, records, printable exports, billing, files, guessed IDs, empty MRNs, proxy contexts, cookie/CSRF behavior, password reset, suspension, logout, and session hashing.
 
