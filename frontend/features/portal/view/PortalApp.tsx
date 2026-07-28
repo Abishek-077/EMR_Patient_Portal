@@ -398,7 +398,7 @@ function Dashboard({
           </div>
         </section>
 
-        <section className="vitals-grid" aria-label="Recent vital signs">
+        <section className="vitals-grid" aria-label="Vital signs" data-evidence-id="dashboard-vital-signs">
           {dashboard.vitals.map((vital) => (
             <article className="vital-card" key={vital.id}>
               <span>{vital.label}</span>
