@@ -30,6 +30,12 @@ import type {
   BillingPaymentMethodInput,
 } from '../../../../shared/types';
 import { emptyInvoiceForm, initialPaymentMethodForm } from '../../model/forms';
+import {
+  OperationStatus,
+  StatusTag,
+  WorkflowConfirmation,
+  type WorkflowConfirmationData,
+} from '../components/UXEvidenceComponents';
 
 export type BillingPaymentInput = {
   amount?: number;
@@ -57,7 +63,7 @@ export function BillingPage({
   canManageInvoices,
 }: {
   billing: BillingData;
-  onPay: (input?: BillingPaymentInput) => Promise<void>;
+  onPay: (input?: BillingPaymentInput) => Promise<BillingData>;
   onSavePaymentMethod: (input: BillingPaymentMethodInput, methodId?: string) => Promise<BillingPaymentMethod>;
   onSetDefaultPaymentMethod: (methodId: string) => Promise<void>;
   onDeletePaymentMethod: (methodId: string) => Promise<void>;
@@ -94,6 +100,7 @@ export function BillingPage({
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState<BillingData['invoices'][number] | null>(null);
   const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentConfirmation, setPaymentConfirmation] = useState<WorkflowConfirmationData | null>(null);
 
   const invoices = billing.invoices
     .filter((invoice) => !invoice.deletedAt)
@@ -119,21 +126,37 @@ export function BillingPage({
     const balanceDue = invoice?.balanceDue ?? invoice?.amount ?? billing.outstandingBalance;
     const amount = requestedAmount ?? balanceDue;
     if (!Number.isFinite(amount) || amount <= 0 || amount > balanceDue) {
-      setNotice(`Enter an amount between $0.01 and $${balanceDue.toFixed(2)}.`);
+      setNotice(`Enter an amount between ${formatNpr(0.01)} and ${formatNpr(balanceDue)}.`);
       return;
     }
     setPaying(true);
     setPayingInvoiceId(invoice?.id || '');
     setNotice('');
     try {
-      await onPay(invoice ? {
+      const updatedBilling = await onPay(invoice ? {
         invoiceId: invoice.id,
         amount,
         paymentMethodId: selectedPaymentMethodId,
       } : {
         paymentMethodId: selectedPaymentMethodId,
       });
-      setNotice(invoice ? `$${amount.toFixed(2)} was submitted for ${invoice.id}.` : 'Your full outstanding balance payment was submitted.');
+      const payment = updatedBilling.payments[0];
+      setPaymentConfirmation({
+        kind: 'payment',
+        heading: 'Payment processed',
+        referenceId: payment?.id || invoice?.id || 'Payment recorded',
+        status: 'Completed',
+        statusTone: 'success',
+        details: [
+          { label: 'Amount', value: formatNpr(amount) },
+          { label: 'Applied to', value: invoice ? `${invoice.id} — ${invoice.description}` : 'Outstanding balance' },
+          { label: 'Payment method', value: billing.paymentMethods.find((method) => method.id === selectedPaymentMethodId)?.label || 'Selected payment method' },
+          { label: 'Submitted', value: formatPatientDateTime(payment?.createdAt) },
+        ],
+        nextSteps: 'The balance and invoice status have been updated. You can download an invoice or statement from Billing.',
+        nextActionLabel: 'Review billing',
+        onNextAction: () => setPaymentConfirmation(null),
+      });
       setPaymentOpen(false);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not process payment');
@@ -261,16 +284,21 @@ export function BillingPage({
 
   return (
     <>
-      <main className="portal-main billing-page">
+      <main
+        className="portal-main billing-page"
+        data-ux-law="von-restorff-effect"
+        data-nielsen-heuristic="consistency-and-standards match-between-system-and-real-world"
+        data-evidence-id="von-restorff-statuses"
+      >
         <section className="billing-title"><h1>Billing & Payments</h1><p>Review your medical statements, track invoice history, and manage payment methods.</p></section>
-        {notice && <p className="workspace-notice">{notice}</p>}
+        {notice && <p className="workspace-notice" role={/could not|enter|add/i.test(notice) ? 'alert' : 'status'}>{notice}</p>}
 
         <div className="billing-top-grid">
           <section className="balance-panel">
             <div><span>Total Outstanding Balance</span>{billing.paymentStatus === 'Due' ? <b>Payment Due: {billing.dueDate || 'Oct 25'}</b> : <b className="paid-label">Paid in Full</b>}</div>
-            <strong>${billing.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+            <strong>{formatNpr(billing.outstandingBalance)}</strong>
             <div className="balance-breakdown">
-              <p><span>Consultation</span><strong>${(billing.breakdown?.consultation ?? 450).toFixed(2)}</strong></p><p><span>Laboratory</span><strong>${(billing.breakdown?.laboratory ?? 320.5).toFixed(2)}</strong></p><p><span>Radiology</span><strong>${(billing.breakdown?.radiology ?? 478).toFixed(2)}</strong></p><p><span>Pharmacy</span><strong>${(billing.breakdown?.pharmacy ?? 0).toFixed(2)}</strong></p>
+              <p><span>Consultation</span><strong>{formatNpr(billing.breakdown?.consultation ?? 450)}</strong></p><p><span>Laboratory</span><strong>{formatNpr(billing.breakdown?.laboratory ?? 320.5)}</strong></p><p><span>Radiology</span><strong>{formatNpr(billing.breakdown?.radiology ?? 478)}</strong></p><p><span>Pharmacy</span><strong>{formatNpr(billing.breakdown?.pharmacy ?? 0)}</strong></p>
             </div>
             <footer>
               <button className="primary-action" type="button" disabled={!canPay || !selectedPaymentMethodId || billing.outstandingBalance === 0 || paying} onClick={() => handlePayment()}>
@@ -323,9 +351,9 @@ export function BillingPage({
                     <td>{invoice.id}</td>
                     <td>{invoice.date}</td>
                     <td>{invoice.description}</td>
-                    <td>${invoice.amount.toFixed(2)}</td>
-                    <td>${(invoice.balanceDue ?? invoice.amount).toFixed(2)}</td>
-                    <td><span className={`invoice-status invoice-status--${invoice.status.toLowerCase().replace(/\s+/g, '-')}`}>● {invoice.status}</span></td>
+                    <td>{formatNpr(invoice.amount)}</td>
+                    <td>{formatNpr(invoice.balanceDue ?? invoice.amount)}</td>
+                    <td><StatusTag label={invoice.status} tone={invoice.status === 'Paid' ? 'success' : invoice.status === 'Overdue' ? 'error' : 'warning'} /></td>
                     <td>
                       {invoice.status !== 'Paid' && canPay && (
                         <button type="button" disabled={paying || !selectedPaymentMethodId} onClick={() => openPartialPayment(invoice)}>
@@ -384,9 +412,10 @@ export function BillingPage({
         <ModalHeader title={paymentInvoice ? `Pay ${paymentInvoice.id}` : 'Make payment'} />
         <ModalBody>
           <Stack gap={5}>
-            <p>Balance due: ${(paymentInvoice?.balanceDue ?? paymentInvoice?.amount ?? 0).toFixed(2)}</p>
-            <TextInput id="partial-payment-amount" labelText="Payment amount ($)" type="number" min="0.01" step="0.01" max={String(paymentInvoice?.balanceDue ?? paymentInvoice?.amount ?? 0)} value={String(paymentAmount)} onChange={(event) => setPaymentAmount(Number(event.target.value))} />
+            <p>Balance due: {formatNpr(paymentInvoice?.balanceDue ?? paymentInvoice?.amount ?? 0)}</p>
+            <TextInput id="partial-payment-amount" labelText="Payment amount (NPR)" type="number" min="0.01" step="0.01" max={String(paymentInvoice?.balanceDue ?? paymentInvoice?.amount ?? 0)} value={String(paymentAmount)} onChange={(event) => setPaymentAmount(Number(event.target.value))} />
             <label className="payment-method-select" htmlFor="partial-payment-method"><span>Payment method</span><select id="partial-payment-method" value={selectedPaymentMethodId} onChange={(event) => setSelectedPaymentMethodId(event.target.value)}>{billing.paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select></label>
+            <OperationStatus busy={paying} busyLabel="Processing payment…" error={notice && /could not/i.test(notice) ? notice : ''} />
           </Stack>
         </ModalBody>
         <ModalFooter>
@@ -400,7 +429,7 @@ export function BillingPage({
         <ModalBody>
           <Stack gap={5}>
             <TextInput id="invoice-description" labelText="Description" placeholder="Annual Wellness Exam" value={invoiceForm.description} onChange={(event) => setInvoiceForm((c) => ({ ...c, description: event.target.value }))} />
-            <TextInput id="invoice-amount" labelText="Amount ($)" type="number" min="0.01" step="0.01" value={String(invoiceForm.amount)} onChange={(event) => setInvoiceForm((c) => ({ ...c, amount: Number(event.target.value) }))} />
+            <TextInput id="invoice-amount" labelText="Amount (NPR)" type="number" min="0.01" step="0.01" value={String(invoiceForm.amount)} onChange={(event) => setInvoiceForm((c) => ({ ...c, amount: Number(event.target.value) }))} />
             <TextInput id="invoice-date" labelText="Date" placeholder="Jan 15, 2024" value={invoiceForm.date || ''} onChange={(event) => setInvoiceForm((c) => ({ ...c, date: event.target.value }))} />
             <label className="payment-method-select" htmlFor="invoice-status">
               <span>Status</span>
@@ -419,6 +448,23 @@ export function BillingPage({
           </Button>
         </ModalFooter>
       </ComposedModal>
+      <WorkflowConfirmation confirmation={paymentConfirmation} onClose={() => setPaymentConfirmation(null)} />
     </>
   );
+}
+
+function formatNpr(value: number) {
+  return new Intl.NumberFormat('en-NP', {
+    style: 'currency',
+    currency: 'NPR',
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
+function formatPatientDateTime(value?: string) {
+  if (!value) return 'Recorded now';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('en-NP', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
