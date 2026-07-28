@@ -3,7 +3,6 @@ import { appointmentsRouter } from '../features/appointments/appointments.routes
 import { authRouter } from '../features/auth/auth.routes.js';
 import { billingRouter } from '../features/billing/billing.routes.js';
 import { dashboardRouter } from '../features/dashboard/dashboard.routes.js';
-import { familyRouter } from '../features/family/family.routes.js';
 import { filesRouter } from '../features/files/files.routes.js';
 import { healthRouter } from '../features/health/health.routes.js';
 import { homeRouter } from '../features/home/home.routes.js';
@@ -15,7 +14,6 @@ import { prescriptionsRouter } from '../features/prescriptions/prescriptions.rou
 import { profileRouter } from '../features/profile/profile.routes.js';
 import { registrationRouter } from '../features/registration/registration.routes.js';
 import { recordsRouter } from '../features/records/records.routes.js';
-import { referralsRouter } from '../features/referrals/referrals.routes.js';
 import { resourcesRouter } from '../features/resources/resources.routes.js';
 import { trendsRouter } from '../features/trends/trends.routes.js';
 import { workflowRouter } from '../features/workflow/workflow.routes.js';
@@ -36,8 +34,6 @@ const apiRoutes = [
   ['/profile', profileRouter],
   ['/records', recordsRouter],
   ['/trends', trendsRouter],
-  ['/referrals', referralsRouter],
-  ['/family', familyRouter],
   ['/immunizations', immunizationsRouter],
   ['/resources', resourcesRouter],
   ['/files', filesRouter],
