@@ -7,9 +7,7 @@ export type PortalRoute =
   | 'messages'
   | 'prescriptions'
   | 'billing'
-  | 'family'
   | 'resources'
-  | 'referrals'
   | 'immunizations'
   | 'trends'
   | 'profile'
@@ -24,9 +22,7 @@ export const routePermissions: Record<PortalRoute, string> = {
   messages: 'messages.view',
   prescriptions: 'prescriptions.view',
   billing: 'billing.view',
-  family: 'family.view',
   resources: 'resources.view',
-  referrals: 'referrals.view',
   immunizations: 'immunizations.view',
   trends: 'trends.view',
   profile: 'profile.view',
@@ -42,8 +38,6 @@ const orderedPortalRoutes: PortalRoute[] = [
   'messages',
   'prescriptions',
   'billing',
-  'family',
-  'referrals',
   'trends',
   'immunizations',
   'resources',
@@ -60,8 +54,6 @@ export const routePaths: Record<PortalRoute, string> = {
   messages: '/messages',
   prescriptions: '/prescriptions',
   billing: '/billing',
-  family: '/family',
-  referrals: '/referrals',
   trends: '/trends',
   immunizations: '/immunizations',
   resources: '/resources',
@@ -130,14 +122,10 @@ function permissionAliases(permission: string) {
     'profile.emergencyContacts.manage': ['profile.emergencyContacts.manageOwn'],
     'tasks.manage': ['tasks.manageOwn'],
     'preferences.manage': ['preferences.manageOwn'],
-    'referrals.view': ['referrals.viewOwn'],
-    'referrals.manage': ['referrals.manageOwn'],
     'immunizations.view': ['immunizations.viewOwn'],
     'immunizations.manage': ['immunizations.manageOwn'],
     'trends.view': ['trends.viewOwn'],
     'trends.manage': ['trends.manageOwn'],
-    'family.view': ['family.viewOwn'],
-    'family.manage': ['family.manageOwn'],
     'notifications.manage': ['notifications.manageOwn'],
   }[permission] || [];
 }
