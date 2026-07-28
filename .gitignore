@@ -16,3 +16,6 @@ data/*.sqlite-shm
 data/*.sqlite-wal
 uploads/
 coverage/
+test-results/
+playwright-report/
+.DS_Store
