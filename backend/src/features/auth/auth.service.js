@@ -378,31 +378,6 @@ function buildPatientContexts(db, actor, access) {
     }
   }
 
-  const normalizedActorEmail = String(actor.email || '').trim().toLowerCase();
-  for (const grant of db.accessGrants || []) {
-    const active = String(grant.status || '').trim().toLowerCase() === 'active'
-      && !grant.revokedAt
-      && !grant.deletedAt;
-    const notExpired = !grant.expiresAt || Date.parse(grant.expiresAt) > Date.now();
-    const matchesActor = grant.granteeUserId === actor.id
-      || (normalizedActorEmail && String(grant.granteeEmail || '').trim().toLowerCase() === normalizedActorEmail);
-    if (!active || !notExpired || !matchesActor || grant.type !== 'proxy') continue;
-    const subject = (db.users || []).find((user) => getPatientId(user) === grant.subjectPatientId && !user.deletedAt);
-    if (subject) add(patientContext(subject, 'proxy', 'Accepted proxy access'));
-  }
-
-  for (const grant of db.familyAccess?.proxies || []) {
-    const status = String(grant.status || '').trim().toLowerCase();
-    const accepted = ['accepted', 'active'].includes(status) && !grant.revokedAt && !grant.deletedAt;
-    const notExpired = !grant.expiresAt || Date.parse(grant.expiresAt) > Date.now();
-    const matchesActor = grant.proxyUserId === actor.id
-      || grant.acceptedByUserId === actor.id
-      || (normalizedActorEmail && String(grant.proxyEmail || grant.email || '').trim().toLowerCase() === normalizedActorEmail);
-    if (!accepted || !notExpired || !matchesActor) continue;
-    const subject = (db.users || []).find((user) => getPatientId(user) === grant.patientId && !user.deletedAt);
-    if (subject) add(patientContext(subject, 'proxy', grant.relationship || 'Accepted proxy access'));
-  }
-
   return contexts;
 }
 
