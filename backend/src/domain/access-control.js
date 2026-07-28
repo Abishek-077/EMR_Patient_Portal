@@ -59,11 +59,6 @@ export const PERMISSION_CATALOG = [
   permission('tasks.manageOwn', 'Manage own tasks', 'Complete or reopen only authenticated patient tasks.', 'Workflow'),
   permission('preferences.manage', 'Manage privacy preferences', 'Update patient privacy and sharing preferences.', 'Workflow'),
   permission('preferences.manageOwn', 'Manage own privacy preferences', 'Update only authenticated patient privacy preferences.', 'Workflow'),
-  permission('referrals.view', 'View referrals', 'See referral status and specialist details.', 'Care Coordination'),
-  permission('referrals.viewOwn', 'Own referrals', 'See only authenticated patient referrals.', 'Care Coordination'),
-  permission('referrals.manage', 'Manage referrals', 'Request and update referrals.', 'Care Coordination'),
-  permission('referrals.manageOwn', 'Manage own referrals', 'Request and update only authenticated patient referrals.', 'Care Coordination'),
-  permission('referrals.review', 'Review referrals', 'Advance or reject referral requests through staff-controlled workflow states.', 'Care Coordination'),
   permission('immunizations.view', 'View immunizations', 'See vaccine records and compliance information.', 'Clinical Records'),
   permission('immunizations.viewOwn', 'Own immunizations', 'See only authenticated patient immunization records.', 'Clinical Records'),
   permission('immunizations.manage', 'Manage immunizations', 'Create and maintain patient-reported immunization records.', 'Clinical Records'),
@@ -75,11 +70,6 @@ export const PERMISSION_CATALOG = [
   permission('trends.manageOwn', 'Manage own health trends', 'Manage only authenticated patient readings and goals.', 'Clinical Records'),
   permission('resources.view', 'View resources', 'Access educational resources and care guidance.', 'Patient Education'),
   permission('resources.interact', 'Use educational resources', 'Save, unsave, read, and download educational resources.', 'Patient Education'),
-  permission('family.view', 'View family access', 'See proxy access and account delegation.', 'Proxy Access'),
-  permission('family.viewOwn', 'Own family access', 'See only authenticated patient proxy access.', 'Proxy Access'),
-  permission('family.manage', 'Manage family access', 'Invite, update, and revoke proxy access.', 'Proxy Access'),
-  permission('family.manageOwn', 'Manage own family access', 'Manage only authenticated patient proxy access.', 'Proxy Access'),
-  permission('family.reports.review', 'Review access reports', 'Review and resolve reported unauthorized-access events.', 'Proxy Access'),
   permission('patients.context.select', 'Select patient context', 'Work within an explicitly authorized patient context.', 'Administration'),
   permission('admin.access.view', 'View access control', 'View roles, permissions, users, and audit history.', 'Administration'),
   permission('admin.access.manage', 'Manage role permissions', 'Change role permission assignments.', 'Administration'),
@@ -93,7 +83,7 @@ const allPermissions = PERMISSION_IDS;
 
 export const DEFAULT_ROLES = [
   role('admin', 'Administrator', 'Full platform administrator with access-control, user, and audit authority.', allPermissions, true),
-  role('doctor', 'Doctor', 'Clinical provider access for records, appointments, messages, prescriptions, referrals, and trends.', [
+  role('doctor', 'Doctor', 'Clinical provider access for records, appointments, messages, prescriptions, and trends.', [
     'dashboard.view',
     'notifications.manage',
     'records.view',
@@ -111,9 +101,6 @@ export const DEFAULT_ROLES = [
     'prescriptions.review',
     'prescriptions.pharmacy.manage',
     'profile.view',
-    'referrals.view',
-    'referrals.manage',
-    'referrals.review',
     'immunizations.view',
     'immunizations.manage',
     'immunizations.verify',
@@ -140,8 +127,6 @@ export const DEFAULT_ROLES = [
     'prescriptions.view',
     'prescriptions.refill',
     'profile.view',
-    'referrals.view',
-    'referrals.review',
     'immunizations.view',
     'immunizations.manage',
     'immunizations.verify',
@@ -162,7 +147,6 @@ export const DEFAULT_ROLES = [
     'messages.view',
     'messages.send',
     'profile.view',
-    'referrals.view',
     'resources.view',
     'resources.interact',
     'patients.context.select',
@@ -183,7 +167,7 @@ export const DEFAULT_ROLES = [
     'resources.interact',
     'patients.context.select',
   ], true),
-  role('patient', 'Patient / Normal User', 'Standard patient portal access for personal records, visits, messages, prescriptions, billing, and family access.', [
+  role('patient', 'Patient / Normal User', 'Standard patient portal access for personal records, visits, messages, prescriptions, and billing.', [
     'dashboard.view',
     'notifications.manageOwn',
     'records.viewOwn',
@@ -212,34 +196,12 @@ export const DEFAULT_ROLES = [
     'profile.emergencyContacts.manageOwn',
     'tasks.manageOwn',
     'preferences.manageOwn',
-    'referrals.viewOwn',
-    'referrals.manageOwn',
     'immunizations.viewOwn',
     'immunizations.manageOwn',
     'trends.viewOwn',
     'trends.manageOwn',
     'resources.view',
     'resources.interact',
-    'family.viewOwn',
-    'family.manageOwn',
-  ], true),
-  role('proxy', 'Family Proxy / Caregiver', 'Delegated family access for care support, appointment requests, messages, billing, and education.', [
-    'dashboard.view',
-    'notifications.manage',
-    'records.view',
-    'appointments.view',
-    'appointments.request',
-    'messages.view',
-    'messages.send',
-    'prescriptions.view',
-    'prescriptions.refill',
-    'billing.view',
-    'billing.pay',
-    'resources.view',
-    'resources.interact',
-    'family.view',
-    'immunizations.view',
-    'trends.view',
   ], true),
 ];
 
@@ -360,14 +322,10 @@ function permissionAliases(permissionId) {
     'profile.emergencyContacts.manage': ['profile.emergencyContacts.manageOwn'],
     'tasks.manage': ['tasks.manageOwn'],
     'preferences.manage': ['preferences.manageOwn'],
-    'referrals.view': ['referrals.viewOwn'],
-    'referrals.manage': ['referrals.manageOwn'],
     'immunizations.view': ['immunizations.viewOwn'],
     'immunizations.manage': ['immunizations.manageOwn'],
     'trends.view': ['trends.viewOwn'],
     'trends.manage': ['trends.manageOwn'],
-    'family.view': ['family.viewOwn'],
-    'family.manage': ['family.manageOwn'],
   }[permissionId] || [];
 }
 
@@ -396,9 +354,8 @@ function upgradeLegacySystemPermissions(roleId, permissions) {
 
   if (upgraded.has('appointments.manage') && !upgraded.has('appointments.manageOwn')) upgraded.add('appointments.approve');
   if (upgraded.has('prescriptions.request') && !upgraded.has('prescriptions.requestOwn')) upgraded.add('prescriptions.review');
-  if (upgraded.has('referrals.manage') && !upgraded.has('referrals.manageOwn')) upgraded.add('referrals.review');
   if (upgraded.has('immunizations.manage') && !upgraded.has('immunizations.manageOwn')) upgraded.add('immunizations.verify');
-  if (roleId !== 'proxy' && [...upgraded].some((permission) => permission.endsWith('.view') && !permission.endsWith('.viewOwn'))) {
+  if ([...upgraded].some((permission) => permission.endsWith('.view') && !permission.endsWith('.viewOwn'))) {
     upgraded.add('patients.context.select');
   }
   return [...upgraded];
