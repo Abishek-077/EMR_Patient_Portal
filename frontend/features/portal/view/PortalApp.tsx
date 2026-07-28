@@ -187,6 +187,16 @@ import { IconButton, PortalHeader, PortalSidebar } from './layout/PortalLayout';
 import { PrintablePreviewModal } from './PrintablePreviewModal';
 import { AdminAccessPage } from './pages/AdminAccessPage';
 import { BillingPage, type BillingPaymentInput } from './pages/BillingPage';
+import {
+  AccessibleFormError,
+  ConfirmActionModal,
+  HelpPanel,
+  OperationStatus,
+  StatusTag,
+  WorkflowConfirmation,
+  type ConfirmAction,
+  type WorkflowConfirmationData,
+} from './components/UXEvidenceComponents';
 import { HomePage } from '../../home';
 import { RegistrationPage } from '../../registration';
 
