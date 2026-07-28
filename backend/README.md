@@ -38,11 +38,9 @@ Login and signup set an HttpOnly cookie and also return a bearer token for devel
 - Records/files: `/api/records`, `/api/files`
 - Prescriptions: `/api/prescriptions`, refill and medication decision endpoints
 - Billing: `/api/billing`, invoices, payment methods, payments, statements
-- Referrals: `/api/referrals`, `/api/referrals/:id/status`
 - Trends: `/api/trends`
 - Immunizations: `/api/immunizations`, `/api/immunizations/:id/verification`
 - Resources: `/api/resources`
-- Family/proxy: `/api/family`, invitation acceptance, reports and report status
 - Administration: `/api/admin/access-control`, `/api/admin/users`
 
 Export endpoints accept `format=json|pdf|csv` where applicable. File endpoints require multipart binary content and downloads stream from authenticated routes; tokens are never placed in file URLs.
