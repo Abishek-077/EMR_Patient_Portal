@@ -206,85 +206,159 @@ function activityPresentation(activity: DashboardActivity) {
   return { icon: Document, tone: 'blue' };
 }
 
+function formatPatientDate(value?: string) {
+  if (!value) return 'Date pending';
+  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('en-NP', { dateStyle: 'medium' }).format(date);
+}
+
 function quickActionIcon(target: PortalRoute) {
   if (target === 'messages') return Chat;
   if (target === 'prescriptions') return Medication;
-  return Document;
+  return Calendar;
 }
 
 function Dashboard({
   portal,
   onBook,
+  onMessage,
+  onRefill,
   onNavigate,
-  onPrintRecord,
-  canBook,
 }: {
   portal: PortalData;
   onBook: () => void;
+  onMessage: () => void;
+  onRefill: () => void;
   onNavigate: (route: PortalRoute) => void;
-  onPrintRecord: () => Promise<void>;
-  canBook: boolean;
 }) {
   const { dashboard } = portal;
   const upcomingAppointments = dashboard.upcomingAppointments.slice(0, 2);
+  const runQuickAction = (target: PortalRoute) => {
+    if (target === 'appointments') onBook();
+    else if (target === 'messages') onMessage();
+    else onRefill();
+  };
 
   return (
-    <main className="portal-main dashboard-page">
-      <section className="page-title dashboard-title">
+    <main
+      className="portal-main dashboard-page"
+      data-ux-laws="hicks-law jakobs-law millers-law von-restorff-effect"
+      data-nielsen-heuristics="consistency-and-standards aesthetic-and-minimalist-design match-system-real-world"
+      data-evidence-id="minimalist-dashboard"
+    >
+      {/* UX Law: Miller’s Law — dashboard information chunked into meaningful groups */}
+      <section className="page-title dashboard-title" data-evidence-id="dashboard-welcome-summary">
         <div>
           <h1>Welcome back, {dashboard.summary.welcomeName}</h1>
           <p>Your health overview for {dashboard.summary.overviewDate}</p>
         </div>
-        <div className="page-actions">
-          <button className="secondary-action" type="button" onClick={() => void onPrintRecord()}><Download size={16} /> Print Record</button>
-          {canBook && <button className="primary-action" type="button" onClick={onBook}><Add size={16} /> New Request</button>}
+        <div className="dashboard-health-summary" aria-label="Health summary">
+          <span><strong>{dashboard.summary.appointmentsUpcoming}</strong> upcoming</span>
+          <span><strong>{dashboard.summary.unreadMessages}</strong> unread</span>
+          <span><strong>{dashboard.summary.refillsDue}</strong> refills due</span>
         </div>
       </section>
 
-      <section className="quick-grid" aria-label="Quick actions">
+      <section
+        className="dashboard-section"
+        data-ux-laws="fitts-law hicks-law"
+        data-nielsen-heuristics="flexibility-and-efficiency aesthetic-and-minimalist-design"
+        data-evidence-id="dashboard-quick-actions"
+      >
+        {/* UX Law: Fitts’s Law — large labelled action targets */}
+        <div className="dashboard-section__heading">
+          <div><h2>Quick actions</h2><p>Start a common task</p></div>
+          <span>3 primary actions</span>
+        </div>
+        <div className="quick-grid" aria-label="Quick actions">
         {dashboard.quickActions.map((action) => {
           const Icon = quickActionIcon(action.target);
-          const className = [
-            'quick-card',
-            action.priority === 'primary' ? 'quick-card--blue' : '',
-            action.priority === 'neutral' ? 'quick-card--gray' : '',
-          ].filter(Boolean).join(' ');
           return (
-            <button className={className} key={action.id} type="button" onClick={() => onNavigate(action.target)}>
+            <button
+              className="quick-card"
+              key={action.id}
+              type="button"
+              disabled={!action.enabled}
+              aria-describedby={!action.enabled ? `${action.id}-restriction` : undefined}
+              onClick={() => runQuickAction(action.target)}
+            >
               <Icon size={29} />
               <strong>{action.label}</strong>
               <span>{action.detail}</span>
+              {!action.enabled && <small id={`${action.id}-restriction`}>{action.restrictedReason}</small>}
             </button>
           );
         })}
+        </div>
       </section>
 
-      <div className="dashboard-content">
-        <section className="o3-panel labs-panel">
+      <section
+        className="dashboard-section attention-center"
+        data-ux-law="zeigarnik-effect"
+        data-nielsen-heuristic="visibility-of-system-status recognition-rather-than-recall"
+        data-evidence-id="dashboard-attention-center"
+      >
+        {/* UX Law: Zeigarnik Effect — unresolved tasks derived from live workflow data */}
+        <div className="dashboard-section__heading">
+          <div><h2>Needs your attention</h2><p>Unresolved requests and balances</p></div>
+          <StatusTag label={`${dashboard.attentionItems.length} open`} tone={dashboard.attentionItems.length ? 'warning' : 'success'} />
+        </div>
+        {dashboard.attentionItems.length ? (
+          <div className="attention-list">
+            {dashboard.attentionItems.map((item) => (
+              <article className={`attention-item attention-item--${item.tone}`} key={item.id}>
+                <div>
+                  <StatusTag label={item.status} tone={item.tone} />
+                  <h3>{item.title}</h3>
+                  <p>{item.detail}</p>
+                  <small>Reference {item.referenceId}</small>
+                </div>
+                <button type="button" onClick={() => onNavigate(item.target)}>{item.actionLabel}</button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="attention-empty" role="status">
+            <CheckmarkOutline aria-hidden="true" size={22} />
+            <p><strong>You’re all caught up.</strong> Resolved items are removed automatically.</p>
+          </div>
+        )}
+      </section>
+
+      <div className="dashboard-content" data-evidence-id="dashboard-status-evidence">
+        <section
+          className="o3-panel labs-panel"
+          data-ux-law="law-of-proximity"
+          data-evidence-id="dashboard-laboratory-results"
+        >
+          {/* UX Law: Law of Proximity — each laboratory row keeps related values together */}
           <div className="panel-heading">
-            <h2><TestTool size={22} /> Latest Lab Results</h2>
+            <h2><TestTool size={22} /> Recent laboratory results</h2>
             <button type="button" onClick={() => onNavigate('records')}>View all results</button>
           </div>
           <table className="lab-table">
             <thead>
-              <tr><th>Test Name</th><th>Result</th><th>Reference Range</th><th>Status</th></tr>
+              <tr><th scope="col">Test</th><th scope="col">Value</th><th scope="col">Reference range</th><th scope="col">Status</th><th scope="col">Date</th></tr>
             </thead>
             <tbody>
               {dashboard.latestLabResults.map((lab) => (
                 <tr key={lab.label}>
-                  <td>{lab.label}</td>
+                  <th scope="row">{lab.label}</th>
                   <td className={labTone(lab) === 'high' ? 'result-high' : ''}><strong>{labValue(lab)}</strong></td>
                   <td><small>{lab.range}</small></td>
                   <td><span className={`status-pill status-pill--${labTone(lab)}`}>{labStatus(lab)}</span></td>
+                  <td>{formatPatientDate(lab.observedAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </section>
 
-        <section className="o3-panel appointment-panel">
+        <section className="o3-panel appointment-panel" data-evidence-id="dashboard-upcoming-appointments">
           <div className="panel-heading">
-            <h2><Calendar size={22} /> Appointments</h2>
+            <h2><Calendar size={22} /> Upcoming appointments</h2>
           </div>
           <div className="appointment-list">
             {upcomingAppointments.map((appointment, index) => {
