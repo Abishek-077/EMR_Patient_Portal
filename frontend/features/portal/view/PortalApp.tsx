@@ -369,17 +369,18 @@ function Dashboard({
                   <div>
                     <h3>{appointment.service}</h3>
                     <p>{appointment.provider || appointment.clinician}</p>
-            <button className="link-button" type="button" onClick={() => onNavigate('appointments')}>{appointment.time || 'Time pending'} - {appointment.location || 'Location pending'}</button>
+                    <p>{appointment.time || 'Time pending'} · {appointment.location || 'Location pending'}</p>
+                    <button className="link-button" type="button" onClick={() => onNavigate('appointments')}>View appointment</button>
                   </div>
                 </article>
               );
             })}
             {!upcomingAppointments.length && <p className="empty-appointments">No upcoming appointments scheduled.</p>}
           </div>
-          {canBook && <button className="wide-secondary" type="button" onClick={onBook}>Schedule New Appointment</button>}
+          <button className="wide-secondary" type="button" onClick={() => onNavigate('appointments')}>View all appointments</button>
         </section>
 
-        <section className="o3-panel activity-panel">
+        <section className="o3-panel activity-panel" data-evidence-id="dashboard-recent-activity">
           <div className="panel-heading"><h2><Renew size={22} /> Recent Activity</h2></div>
           <div className="activity-list">
             {dashboard.recentActivity.map((item) => {
