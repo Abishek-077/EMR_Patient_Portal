@@ -163,44 +163,8 @@ try {
   const newPasswordLogin = await login('security.beta@example.test', 'Beta@Changed2');
   assert(newPasswordLogin.status === 200, 'the new password should work after reset');
 
-  const proxyInvite = await api('/api/family/proxies', {
-    method: 'POST',
-    token: patientA.body.token,
-    body: {
-      name: 'Security Patient Beta',
-      email: 'security.beta@example.test',
-      relationship: 'Caregiver',
-      permissions: 'View Only',
-    },
-  });
-  assert(proxyInvite.status === 202, 'proxy invitation should be queued');
-  const invitationDb = await readDb();
-  const invitationDelivery = [...(invitationDb.notificationOutbox || [])].reverse().find((item) => item.template === 'proxy-invitation' && item.recipient === 'security.beta@example.test');
-  const invitationToken = tokenFromUrl(invitationDelivery?.metadata?.acceptanceUrl || '', '/accept-proxy');
-  assert(invitationToken, 'proxy invitation outbox record should contain an expiring acceptance token');
-  const accepted = await api('/api/family/invitations/accept', {
-    method: 'POST',
-    body: { token: invitationToken },
-  });
-  assert(accepted.status === 200 && accepted.body.grant.status === 'Active', 'proxy invitation should create an active access grant exactly once');
-  const proxyMe = await api('/api/auth/me', { token: newPasswordLogin.body.token });
-  const alphaProxyContext = proxyMe.body.patientContexts.find((context) => context.id === patientA.body.currentPatientContext.id && context.type === 'proxy');
-  assert(alphaProxyContext, 'accepted proxy should expose the subject patient as an authorized context');
-  const proxiedRecords = await api('/api/records', {
-    token: newPasswordLogin.body.token,
-    patientContext: alphaProxyContext.id,
-  });
-  assert(proxiedRecords.status === 200 && JSON.stringify(proxiedRecords.body).includes('ALPHA-PRIVATE-MARKER'), 'accepted proxy context should read the authorized subject only');
-  const revoked = await api(`/api/family/proxies/${proxyInvite.body.id}`, {
-    method: 'DELETE',
-    token: patientA.body.token,
-  });
-  assert(revoked.status === 200 && revoked.body.status === 'Revoked', 'patient should be able to revoke proxy access');
-  const revokedContext = await api('/api/records', {
-    token: newPasswordLogin.body.token,
-    patientContext: alphaProxyContext.id,
-  });
-  assert(revokedContext.status === 403, 'revoked proxy context must be rejected immediately');
+  const removedFamilyEndpoint = await api('/api/family', { token: patientA.body.token });
+  assert(removedFamilyEndpoint.status === 404, 'removed family access endpoints must remain unavailable');
 
   await createDevelopmentAdmin({
     fullName: 'Security Administrator',

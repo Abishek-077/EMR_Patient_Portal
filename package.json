@@ -20,6 +20,8 @@
     "test:api": "node backend/scripts/smoke-test.js",
     "test:security": "node backend/scripts/security-regression-test.js",
     "test:migration": "node backend/scripts/migration-test.js",
+    "test:ux": "npm run seed:demo && playwright test frontend/tests/ux-evidence.spec.ts",
+    "test:ux:evidence": "npm run test:ux",
     "reset:demo": "node backend/scripts/reset-demo-data.js",
     "seed:demo": "node backend/scripts/seed-demo-users.js",
     "migrate:legacy": "node backend/scripts/migrate-legacy-data.js",
@@ -39,6 +41,7 @@
     "vite": "^7.1.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "concurrently": "^10.0.0",

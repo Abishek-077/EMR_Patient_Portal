@@ -1,10 +1,13 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthGate } from '../features/auth';
+import { AppErrorBoundary } from '../shared/components/AppErrorBoundary';
 
 function App() {
   return (
     <BrowserRouter>
-      <AuthGate />
+      <AppErrorBoundary>
+        <AuthGate />
+      </AppErrorBoundary>
     </BrowserRouter>
   );
 }

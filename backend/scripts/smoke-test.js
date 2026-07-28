@@ -597,63 +597,8 @@ try {
   assert(cancelled.status === 200, 'cancel appointment should return 200');
   assert(cancelled.body.status === 'Cancelled', 'cancelled appointment should update status');
 
-  const referrals = await json('/api/referrals', { method: 'GET', token: login.body.token });
-  assert(referrals.status === 200, 'referrals list should return 200');
-  assert(referrals.body.rows.length >= 1, 'referrals should include seeded rows');
-
-  const referralRequest = await json('/api/referrals', {
-    method: 'POST',
-    token: login.body.token,
-    body: {
-      provider: 'Care Team',
-      specialty: 'Physical Therapy',
-      reason: 'Smoke test mobility referral',
-      clinic: 'Metro Rehab Clinic',
-    },
-  });
-  assert(referralRequest.status === 202, 'referral request should return 202');
-  assert(referralRequest.body.status === 'Pending', 'referral request should be pending');
-
-  const referralCalendar = await json(`/api/referrals/${referralRequest.body.id}/calendar`, {
-    method: 'GET',
-    token: login.body.token,
-  });
-  assert(referralCalendar.status === 200, 'referral calendar read should not mutate status');
-  assert(referralCalendar.body.status === 'Pending', 'calendar read should leave referral pending');
-
-  const referralApproval = await json(`/api/referrals/${referralRequest.body.id}/status`, {
-    method: 'PATCH',
-    token: adminLogin.body.token,
-    patientContext: patientContextId,
-    body: {
-      status: 'Approved',
-    },
-  });
-  assert(referralApproval.status === 200, 'staff should approve referral');
-
-  const referralScheduled = await json(`/api/referrals/${referralRequest.body.id}/status`, {
-    method: 'PATCH',
-    token: adminLogin.body.token,
-    patientContext: patientContextId,
-    body: {
-      status: 'Scheduled',
-      appointment: '2030-02-01T10:00:00Z',
-      clinic: 'Metro Rehab Clinic',
-    },
-  });
-  assert(referralScheduled.status === 200, 'staff should schedule referral');
-  assert(referralScheduled.body.status === 'Scheduled', 'referral status should be scheduled');
-
-  const referralDetail = await json(`/api/referrals/${referralRequest.body.id}`, { method: 'GET', token: login.body.token });
-  assert(referralDetail.status === 200, 'referral detail should return 200');
-  assert(referralDetail.body.referral.id === referralRequest.body.id, 'referral detail should include referral');
-
-  const referralExport = await json('/api/referrals/export', { method: 'GET', token: login.body.token });
-  assert(referralExport.status === 200, 'referral export should return 200');
-  assert(Array.isArray(referralExport.body.referrals), 'referral export should include referrals');
-  const referralPdf = await raw('/api/referrals/export?format=pdf', { method: 'GET', token: login.body.token });
-  assert(referralPdf.status === 200 && referralPdf.headers.get('content-type').includes('application/pdf'), 'referral PDF export should stream a PDF');
-  assert(Buffer.from(await referralPdf.arrayBuffer()).subarray(0, 5).toString('ascii') === '%PDF-', 'referral PDF should contain a valid PDF header');
+  const removedReferrals = await json('/api/referrals', { method: 'GET', token: login.body.token });
+  assert(removedReferrals.status === 404, 'removed referrals API should not be available');
 
   const resources = await json('/api/resources?query=lab&format=Article', { method: 'GET', token: login.body.token });
   assert(resources.status === 200, 'resources list should return 200');
@@ -662,6 +607,7 @@ try {
   const resourceDetail = await json('/api/resources/lib-cbc', { method: 'GET', token: login.body.token });
   assert(resourceDetail.status === 200, 'resource detail should return 200');
   assert(resourceDetail.body.title.includes('Understanding Lab Results'), 'resource detail should include its titled content');
+  assert(resourceDetail.body.sourceUrl.startsWith('https://medlineplus.gov/'), 'resource detail should include a trusted patient education source');
 
   const resourceInteraction = await json('/api/resources/lib-cbc/interactions', {
     method: 'POST',
@@ -674,6 +620,7 @@ try {
   const groupedResourceDetail = await json('/api/resources/condition-guides-0', { method: 'GET', token: login.body.token });
   assert(groupedResourceDetail.status === 200, 'grouped resource detail should return 200');
   assert(groupedResourceDetail.body.title === 'Type 2 Diabetes Basics', 'grouped resource detail should resolve generated id');
+  assert(groupedResourceDetail.body.sourceUrl.startsWith('https://medlineplus.gov/'), 'grouped resource detail should include a trusted source');
 
   const groupedResourceInteraction = await json('/api/resources/condition-guides-0/interactions', {
     method: 'POST',
@@ -709,87 +656,8 @@ try {
   });
   assert(verifiedImmunization.status === 200 && verifiedImmunization.body.verificationStatus === 'Verified', 'authorized staff should verify a patient-reported immunization');
 
-  const family = await json('/api/family', { method: 'GET', token: login.body.token });
-  assert(family.status === 200, 'family access should return 200');
-  assert(Array.isArray(family.body.familyAccess.proxies), 'family access should include proxies');
-
-  const proxy = await json('/api/family/proxies', {
-    method: 'POST',
-    token: login.body.token,
-    body: {
-      name: 'Smoke Proxy',
-      email: 'smoke.proxy@example.test',
-      relationship: 'Sibling',
-      permissions: 'View Only',
-    },
-  });
-  assert(proxy.status === 202, `proxy invite should return 202 (received ${proxy.status}: ${JSON.stringify(proxy.body)})`);
-
-  const proxyPermissions = await json(`/api/family/proxies/${proxy.body.id}`, {
-    method: 'PATCH',
-    token: login.body.token,
-    body: { permissions: 'Billing Only' },
-  });
-  assert(proxyPermissions.status === 200, 'proxy permission update should return 200');
-  assert(proxyPermissions.body.permissions === 'Billing Only', 'proxy permission should update');
-
-  const resentProxy = await json(`/api/family/proxies/${proxy.body.id}/resend`, {
-    method: 'POST',
-    token: login.body.token,
-  });
-  assert(resentProxy.status === 200, 'proxy resend should return 200');
-
-  const dependent = await json('/api/family/dependents', {
-    method: 'POST',
-    token: login.body.token,
-    body: {
-      name: 'Smoke Dependent',
-      relationship: 'Child',
-      detail: 'Last Visit: Pending',
-      access: 'View Only',
-    },
-  });
-  assert(dependent.status === 201, 'dependent add should return 201');
-
-  const privacy = await json('/api/family/privacy', {
-    method: 'PATCH',
-    token: login.body.token,
-    body: {
-      shareRecords: false,
-      mentalHealthNotes: true,
-    },
-  });
-  assert(privacy.status === 200, 'family privacy update should return 200');
-  assert(privacy.body.shareRecords === false && privacy.body.mentalHealthNotes === true, 'family privacy should update');
-
-  const accessReport = await json('/api/family/reports', {
-    method: 'POST',
-    token: login.body.token,
-    body: {
-      summary: 'Smoke test access concern',
-      contactPreference: 'Secure message',
-    },
-  });
-  assert(accessReport.status === 202, 'unauthorized access report should return 202');
-  assert(accessReport.body.status === 'Submitted', 'unauthorized access report should be submitted');
-
-  const reviewedAccessReport = await json(`/api/family/reports/${accessReport.body.id}/status`, {
-    method: 'PATCH',
-    token: adminLogin.body.token,
-    patientContext: patientContextId,
-    body: { status: 'Under Review', resolution: '' },
-  });
-  assert(reviewedAccessReport.status === 200 && reviewedAccessReport.body.status === 'Under Review', 'authorized staff should review access reports');
-
-  const accessPolicy = await json('/api/family/policy', { method: 'GET', token: login.body.token });
-  assert(accessPolicy.status === 200, 'family access policy should return 200');
-  assert(accessPolicy.body.title === 'Proxy Access Policy', 'family access policy should include title');
-
-  const revokedProxy = await json(`/api/family/proxies/${proxy.body.id}`, {
-    method: 'DELETE',
-    token: login.body.token,
-  });
-  assert(revokedProxy.status === 200, 'proxy revoke should return 200');
+  const removedFamilyAccess = await json('/api/family', { method: 'GET', token: login.body.token });
+  assert(removedFamilyAccess.status === 404, 'removed family access API should not be available');
 
   const prescriptions = await json('/api/prescriptions', { method: 'GET', token: login.body.token });
   assert(prescriptions.status === 200, 'prescriptions overview should return 200');
@@ -1026,11 +894,11 @@ try {
       relationship: 'Friend',
       primaryPhone: '(555) 111-2222',
       alternatePhone: '(555) 333-4444',
-      access: 'Full Proxy',
+      access: 'Full access',
     },
   });
   assert(updatedContact.status === 200, 'emergency contact update should return 200');
-  assert(updatedContact.body.access === 'Full Proxy', 'emergency contact should update access');
+  assert(updatedContact.body.access === 'Full access', 'emergency contact should update access');
 
   const deletedContact = await json(`/api/profile/emergency-contacts/${contact.body.id}`, {
     method: 'DELETE',

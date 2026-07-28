@@ -86,6 +86,7 @@ export type Prescription = {
   id: string;
   name: string;
   detail: string;
+  prescriber?: string;
   frequency: string;
   started: string;
   refillCount: string;
@@ -218,6 +219,7 @@ export type LabResult = {
   value: number;
   unit: string;
   range: string;
+  observedAt?: string;
   tone: 'good' | 'warning';
 };
 
@@ -236,6 +238,18 @@ export type DashboardActivity = {
   detail: string;
   occurredAt: string;
   tone: 'info' | 'success' | 'message';
+};
+
+export type DashboardAttentionItem = {
+  id: string;
+  type: 'refill' | 'referral' | 'appointment' | 'billing';
+  title: string;
+  detail: string;
+  status: string;
+  tone: 'warning' | 'error' | 'pending';
+  target: 'prescriptions' | 'referrals' | 'appointments' | 'billing';
+  actionLabel: string;
+  referenceId: string;
 };
 
 export type DashboardData = {
@@ -257,9 +271,11 @@ export type DashboardData = {
     id: string;
     label: string;
     detail: string;
-    target: 'messages' | 'prescriptions' | 'records';
-    priority: 'primary' | 'secondary' | 'neutral';
+    target: 'appointments' | 'messages' | 'prescriptions';
+    enabled: boolean;
+    restrictedReason?: string;
   }>;
+  attentionItems: DashboardAttentionItem[];
   latestLabResults: LabResult[];
   upcomingAppointments: Appointment[];
   recentActivity: DashboardActivity[];
@@ -343,6 +359,8 @@ export type EducationalResources = {
     updated: string;
     actionLabel: string;
     imageUrl?: string;
+    sourceUrl?: string;
+    sourceLabel?: string;
   };
   video: {
     id: string;
@@ -351,14 +369,19 @@ export type EducationalResources = {
     duration: string;
     category: string;
     imageUrl?: string;
+    sourceUrl?: string;
+    sourceLabel?: string;
   };
   groups: Array<{
     id: string;
     title: string;
     items: Array<{
+      id?: string;
       title: string;
       detail: string;
       action: string;
+      sourceUrl?: string;
+      sourceLabel?: string;
     }>;
   }>;
   library: Array<{
@@ -368,6 +391,8 @@ export type EducationalResources = {
     category: string;
     updated: string;
     format: string;
+    sourceUrl?: string;
+    sourceLabel?: string;
   }>;
 };
 
@@ -748,6 +773,7 @@ export type PortalData = {
     permissions: string[];
     status: AccessStatus;
   };
+  featureErrors?: Record<string, string>;
   patient: Patient;
   preferences: {
     shareRecords: boolean;

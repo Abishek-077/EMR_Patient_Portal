@@ -31,11 +31,11 @@ export const portalRouteManifests: PortalRouteManifest[] = [
   manifest('Messages', 'messages', Chat),
   manifest('Prescriptions', 'prescriptions', Medication),
   manifest('Billing', 'billing', Money),
+  manifest('Family Access', 'family', UserAvatar),
   manifest('Referrals', 'referrals', UserAvatar),
   manifest('Health Trends', 'trends', Renew),
   manifest('Immunizations', 'immunizations', Hospital),
   manifest('Resources', 'resources', Document),
-  manifest('Family Access', 'family', UserAvatar),
   manifest('Profile', 'profile', UserAvatar),
   manifest('Admin Access', 'admin', Settings, false),
 ];

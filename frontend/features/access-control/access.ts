@@ -7,8 +7,8 @@ export type PortalRoute =
   | 'messages'
   | 'prescriptions'
   | 'billing'
-  | 'resources'
   | 'family'
+  | 'resources'
   | 'referrals'
   | 'immunizations'
   | 'trends'
@@ -24,8 +24,8 @@ export const routePermissions: Record<PortalRoute, string> = {
   messages: 'messages.view',
   prescriptions: 'prescriptions.view',
   billing: 'billing.view',
-  resources: 'resources.view',
   family: 'family.view',
+  resources: 'resources.view',
   referrals: 'referrals.view',
   immunizations: 'immunizations.view',
   trends: 'trends.view',
@@ -42,11 +42,11 @@ const orderedPortalRoutes: PortalRoute[] = [
   'messages',
   'prescriptions',
   'billing',
+  'family',
   'referrals',
   'trends',
   'immunizations',
   'resources',
-  'family',
   'profile',
   'admin',
 ];
@@ -60,11 +60,11 @@ export const routePaths: Record<PortalRoute, string> = {
   messages: '/messages',
   prescriptions: '/prescriptions',
   billing: '/billing',
+  family: '/family',
   referrals: '/referrals',
   trends: '/trends',
   immunizations: '/immunizations',
   resources: '/resources',
-  family: '/family',
   profile: '/profile',
   admin: '/admin/access-control',
 };

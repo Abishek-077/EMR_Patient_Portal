@@ -83,6 +83,8 @@ import {
   getPrintableImmunizations,
   getPrintablePrescriptions,
   getPrintableRecord,
+  getReferralCalendar,
+  getReferralContact,
   getReferralDetail,
   getReferralExport,
   getResourceDetail,
@@ -162,7 +164,11 @@ import type {
   TrendGoalInput,
   TrendReadingInput,
 } from '../../../shared/types';
-import { openPrintableView } from '../controller/printable-view';
+import {
+  openPrintableView,
+  subscribeToPrintableView,
+} from '../controller/printable-view';
+import type { PrintableViewRequest } from '../controller/printable-view';
 import {
   defaultPharmacyForm,
   emptyEmergencyContact,
@@ -178,8 +184,19 @@ import {
   medicationSummaryFromPortal,
 } from '../model/formatters';
 import { IconButton, PortalHeader, PortalSidebar } from './layout/PortalLayout';
+import { PrintablePreviewModal } from './PrintablePreviewModal';
 import { AdminAccessPage } from './pages/AdminAccessPage';
 import { BillingPage, type BillingPaymentInput } from './pages/BillingPage';
+import {
+  AccessibleFormError,
+  ConfirmActionModal,
+  HelpPanel,
+  OperationStatus,
+  StatusTag,
+  WorkflowConfirmation,
+  type ConfirmAction,
+  type WorkflowConfirmationData,
+} from './components/UXEvidenceComponents';
 import { HomePage } from '../../home';
 import { RegistrationPage } from '../../registration';
 
@@ -189,85 +206,159 @@ function activityPresentation(activity: DashboardActivity) {
   return { icon: Document, tone: 'blue' };
 }
 
+function formatPatientDate(value?: string) {
+  if (!value) return 'Date pending';
+  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('en-NP', { dateStyle: 'medium' }).format(date);
+}
+
 function quickActionIcon(target: PortalRoute) {
   if (target === 'messages') return Chat;
   if (target === 'prescriptions') return Medication;
-  return Document;
+  return Calendar;
 }
 
 function Dashboard({
   portal,
   onBook,
+  onMessage,
+  onRefill,
   onNavigate,
-  onPrintRecord,
-  canBook,
 }: {
   portal: PortalData;
   onBook: () => void;
+  onMessage: () => void;
+  onRefill: () => void;
   onNavigate: (route: PortalRoute) => void;
-  onPrintRecord: () => Promise<void>;
-  canBook: boolean;
 }) {
   const { dashboard } = portal;
   const upcomingAppointments = dashboard.upcomingAppointments.slice(0, 2);
+  const runQuickAction = (target: PortalRoute) => {
+    if (target === 'appointments') onBook();
+    else if (target === 'messages') onMessage();
+    else onRefill();
+  };
 
   return (
-    <main className="portal-main dashboard-page">
-      <section className="page-title dashboard-title">
+    <main
+      className="portal-main dashboard-page"
+      data-ux-laws="hicks-law jakobs-law millers-law von-restorff-effect"
+      data-nielsen-heuristics="consistency-and-standards aesthetic-and-minimalist-design match-system-real-world"
+      data-evidence-id="minimalist-dashboard"
+    >
+      {/* UX Law: Miller’s Law — dashboard information chunked into meaningful groups */}
+      <section className="page-title dashboard-title" data-evidence-id="dashboard-welcome-summary">
         <div>
           <h1>Welcome back, {dashboard.summary.welcomeName}</h1>
           <p>Your health overview for {dashboard.summary.overviewDate}</p>
         </div>
-        <div className="page-actions">
-          <button className="secondary-action" type="button" onClick={() => void onPrintRecord()}><Download size={16} /> Print Record</button>
-          {canBook && <button className="primary-action" type="button" onClick={onBook}><Add size={16} /> New Request</button>}
+        <div className="dashboard-health-summary" aria-label="Health summary">
+          <span><strong>{dashboard.summary.appointmentsUpcoming}</strong> upcoming</span>
+          <span><strong>{dashboard.summary.unreadMessages}</strong> unread</span>
+          <span><strong>{dashboard.summary.refillsDue}</strong> refills due</span>
         </div>
       </section>
 
-      <section className="quick-grid" aria-label="Quick actions">
+      <section
+        className="dashboard-section"
+        data-ux-laws="fitts-law hicks-law"
+        data-nielsen-heuristics="flexibility-and-efficiency aesthetic-and-minimalist-design"
+        data-evidence-id="dashboard-quick-actions"
+      >
+        {/* UX Law: Fitts’s Law — large labelled action targets */}
+        <div className="dashboard-section__heading">
+          <div><h2>Quick actions</h2><p>Start a common task</p></div>
+          <span>3 primary actions</span>
+        </div>
+        <div className="quick-grid" aria-label="Quick actions">
         {dashboard.quickActions.map((action) => {
           const Icon = quickActionIcon(action.target);
-          const className = [
-            'quick-card',
-            action.priority === 'primary' ? 'quick-card--blue' : '',
-            action.priority === 'neutral' ? 'quick-card--gray' : '',
-          ].filter(Boolean).join(' ');
           return (
-            <button className={className} key={action.id} type="button" onClick={() => onNavigate(action.target)}>
+            <button
+              className="quick-card"
+              key={action.id}
+              type="button"
+              disabled={!action.enabled}
+              aria-describedby={!action.enabled ? `${action.id}-restriction` : undefined}
+              onClick={() => runQuickAction(action.target)}
+            >
               <Icon size={29} />
               <strong>{action.label}</strong>
               <span>{action.detail}</span>
+              {!action.enabled && <small id={`${action.id}-restriction`}>{action.restrictedReason}</small>}
             </button>
           );
         })}
+        </div>
       </section>
 
-      <div className="dashboard-content">
-        <section className="o3-panel labs-panel">
+      <section
+        className="dashboard-section attention-center"
+        data-ux-law="zeigarnik-effect"
+        data-nielsen-heuristic="visibility-of-system-status recognition-rather-than-recall"
+        data-evidence-id="dashboard-attention-center"
+      >
+        {/* UX Law: Zeigarnik Effect — unresolved tasks derived from live workflow data */}
+        <div className="dashboard-section__heading">
+          <div><h2>Needs your attention</h2><p>Unresolved requests and balances</p></div>
+          <StatusTag label={`${dashboard.attentionItems.length} open`} tone={dashboard.attentionItems.length ? 'warning' : 'success'} />
+        </div>
+        {dashboard.attentionItems.length ? (
+          <div className="attention-list">
+            {dashboard.attentionItems.map((item) => (
+              <article className={`attention-item attention-item--${item.tone}`} key={item.id}>
+                <div>
+                  <StatusTag label={item.status} tone={item.tone} />
+                  <h3>{item.title}</h3>
+                  <p>{item.detail}</p>
+                  <small>Reference {item.referenceId}</small>
+                </div>
+                <button type="button" onClick={() => onNavigate(item.target)}>{item.actionLabel}</button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="attention-empty" role="status">
+            <CheckmarkOutline aria-hidden="true" size={22} />
+            <p><strong>You’re all caught up.</strong> Resolved items are removed automatically.</p>
+          </div>
+        )}
+      </section>
+
+      <div className="dashboard-content" data-evidence-id="dashboard-status-evidence">
+        <section
+          className="o3-panel labs-panel"
+          data-ux-law="law-of-proximity"
+          data-evidence-id="dashboard-laboratory-results"
+        >
+          {/* UX Law: Law of Proximity — each laboratory row keeps related values together */}
           <div className="panel-heading">
-            <h2><TestTool size={22} /> Latest Lab Results</h2>
+            <h2><TestTool size={22} /> Recent laboratory results</h2>
             <button type="button" onClick={() => onNavigate('records')}>View all results</button>
           </div>
           <table className="lab-table">
             <thead>
-              <tr><th>Test Name</th><th>Result</th><th>Reference Range</th><th>Status</th></tr>
+              <tr><th scope="col">Test</th><th scope="col">Value</th><th scope="col">Reference range</th><th scope="col">Status</th><th scope="col">Date</th></tr>
             </thead>
             <tbody>
               {dashboard.latestLabResults.map((lab) => (
                 <tr key={lab.label}>
-                  <td>{lab.label}</td>
+                  <th scope="row">{lab.label}</th>
                   <td className={labTone(lab) === 'high' ? 'result-high' : ''}><strong>{labValue(lab)}</strong></td>
                   <td><small>{lab.range}</small></td>
                   <td><span className={`status-pill status-pill--${labTone(lab)}`}>{labStatus(lab)}</span></td>
+                  <td>{formatPatientDate(lab.observedAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </section>
 
-        <section className="o3-panel appointment-panel">
+        <section className="o3-panel appointment-panel" data-evidence-id="dashboard-upcoming-appointments">
           <div className="panel-heading">
-            <h2><Calendar size={22} /> Appointments</h2>
+            <h2><Calendar size={22} /> Upcoming appointments</h2>
           </div>
           <div className="appointment-list">
             {upcomingAppointments.map((appointment, index) => {
@@ -278,17 +369,18 @@ function Dashboard({
                   <div>
                     <h3>{appointment.service}</h3>
                     <p>{appointment.provider || appointment.clinician}</p>
-            <button className="link-button" type="button" onClick={() => onNavigate('appointments')}>{appointment.time || 'Time pending'} - {appointment.location || 'Location pending'}</button>
+                    <p>{appointment.time || 'Time pending'} · {appointment.location || 'Location pending'}</p>
+                    <button className="link-button" type="button" onClick={() => onNavigate('appointments')}>View appointment</button>
                   </div>
                 </article>
               );
             })}
             {!upcomingAppointments.length && <p className="empty-appointments">No upcoming appointments scheduled.</p>}
           </div>
-          {canBook && <button className="wide-secondary" type="button" onClick={onBook}>Schedule New Appointment</button>}
+          <button className="wide-secondary" type="button" onClick={() => onNavigate('appointments')}>View all appointments</button>
         </section>
 
-        <section className="o3-panel activity-panel">
+        <section className="o3-panel activity-panel" data-evidence-id="dashboard-recent-activity">
           <div className="panel-heading"><h2><Renew size={22} /> Recent Activity</h2></div>
           <div className="activity-list">
             {dashboard.recentActivity.map((item) => {
@@ -306,7 +398,7 @@ function Dashboard({
           </div>
         </section>
 
-        <section className="vitals-grid" aria-label="Recent vital signs">
+        <section className="vitals-grid" aria-label="Vital signs" data-evidence-id="dashboard-vital-signs">
           {dashboard.vitals.map((vital) => (
             <article className="vital-card" key={vital.id}>
               <span>{vital.label}</span>
@@ -504,7 +596,13 @@ function RecordsPage({
   };
 
   return (
-    <main className="portal-main records-page">
+    <main
+      className="portal-main records-page"
+      data-ux-law="law-of-common-region"
+      data-nielsen-heuristics="consistency-and-standards flexibility-and-efficiency"
+      data-evidence-id="health-records-common-regions"
+    >
+      {/* UX Law: Law of Common Region — bounded filters, results, details, observations, and notes */}
       <section className="records-title">
         <div>
           <h1>Health Records</h1>
@@ -518,17 +616,26 @@ function RecordsPage({
         </div>
       </section>
       {recordNotice && <p className="workspace-notice" role="status">{recordNotice}</p>}
-      <label className="record-search">
-        <Search size={18} />
-        <input aria-label="Search health records" placeholder="Search labs, notes, documents..." value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
+      <section
+        className="record-filter-region"
+        aria-label="Search and filter health records"
+        data-nielsen-heuristic="flexibility-and-efficiency recognition-rather-than-recall"
+        data-evidence-id="records-search-filters"
+      >
+        <label className="record-search">
+          <Search size={18} />
+          <input aria-label="Search health records" placeholder="Search labs, notes, documents…" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <span>{query ? `Filter: “${query}”` : 'All record types'}</span>
+        <button type="button" disabled={!query} onClick={() => setQuery('')}>Reset filters</button>
+      </section>
 
-      <div className="records-grid">
+      <div className="records-grid" data-evidence-id="records-results-region">
         <section className="records-trends">
           <h2><Renew size={22} /> Health Trends</h2>
           <TrendChart />
         </section>
-        <aside className="observations-panel">
+        <aside className="observations-panel" data-evidence-id="records-critical-observations">
           <h2>Critical Observations</h2>
           {warningLabs.length ? warningLabs.map((lab) => (
             <article className={`observation observation--${labStatus(lab) === 'LOW' ? 'yellow' : 'red'}`} key={lab.label}>
@@ -543,7 +650,7 @@ function RecordsPage({
           </div>
         </aside>
 
-        <section className="clinical-notes">
+        <section className="clinical-notes" data-evidence-id="records-clinical-notes">
           <div className="records-subheading"><h2>Clinical Notes</h2><button type="button" onClick={() => setQuery('')}>View All History</button></div>
           {visibleNotes.map((note) => (
             <article className="note-card" key={note.id}>
@@ -563,17 +670,22 @@ function RecordsPage({
           {!visibleDocuments.length && !visibleFiles.length && <p className="empty-appointments">No documents or files match your search.</p>}
         </section>
 
-        <section className="record-labs">
+        <section
+          className="record-labs"
+          data-ux-law="law-of-proximity"
+          data-evidence-id="records-laboratory-results"
+        >
           <div className="records-subheading"><h2>Laboratory Results</h2><span><Filter size={16} /> {visibleLabs.length} visible</span></div>
           <table>
-            <thead><tr><th>Test Name</th><th>Result</th><th>Status</th><th>Date</th></tr></thead>
+            <thead><tr><th scope="col">Test name</th><th scope="col">Value and unit</th><th scope="col">Reference range</th><th scope="col">Written status</th><th scope="col">Observed</th></tr></thead>
             <tbody>
-              {visibleLabs.map((lab, index) => (
-                <tr className={detailLab?.label === lab.label ? 'selected-row' : ''} key={lab.label} onClick={() => setSelectedLab(lab.label)}>
-                  <td>{lab.label}<small>{index === 0 ? 'Panel Analysis' : 'Laboratory Result'}</small></td>
+              {visibleLabs.map((lab) => (
+                <tr className={detailLab?.label === lab.label ? 'selected-row' : ''} key={lab.label}>
+                  <th scope="row"><button type="button" onClick={() => setSelectedLab(lab.label)}>{lab.label}</button><small>Laboratory result</small></th>
                   <td className={labTone(lab) === 'high' ? 'result-high' : ''}><strong>{labValue(lab)}</strong></td>
+                  <td>{lab.range}</td>
                   <td><span className={`status-pill status-pill--${labTone(lab)}`}>{labStatus(lab)}</span></td>
-                  <td>{portal.documents[index]?.updated || latestDocument?.updated || 'Latest'}</td>
+                  <td>{formatPatientDate(lab.observedAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -581,7 +693,7 @@ function RecordsPage({
         </section>
 
         {detailLab && (
-          <aside className="lab-detail-panel">
+          <aside className="lab-detail-panel" data-evidence-id="records-selected-result-detail">
             <h2><TestTool size={20} /> Detail View: {detailLab.label}</h2>
             <strong>{labValue(detailLab)}</strong>
             <span>Reference range: {detailLab.range}</span>
@@ -672,6 +784,7 @@ function MessagesPageLive({
 
   const handleSend = async () => {
     if (!activeConversation) return;
+    if (isSending) return;
     const message = reply.trim();
     if (!message) return;
     setIsSending(true);
@@ -801,7 +914,12 @@ function MessagesPageLive({
             )
           ))}
         </div>
-        {canSend && <div className="thread-composer">
+        {canSend && (
+        <div
+          className="thread-composer"
+          data-nielsen-heuristic="recognize-diagnose-recover-errors visibility-of-system-status"
+          data-evidence-id="message-error-recovery"
+        >
           <div className="composer-tools">
             <button className="format-bold" type="button" onClick={() => insertComposerText('**bold text**')}>B</button>
             <button className="format-italic" type="button" onClick={() => insertComposerText('_italic text_')}>I</button>
@@ -811,12 +929,18 @@ function MessagesPageLive({
           </div>
           <textarea aria-label="Message reply" placeholder="Type a portal message..." value={reply} onChange={(event) => setReply(event.target.value)} />
           <div className="composer-footer">
-            {sendError ? <span className="composer-error">{sendError}</span> : <span>Portal message to {activeConversation.participantName}</span>}
+            <div aria-live="polite">
+              {sendError
+                ? <span className="composer-error" role="alert"><strong>Message not sent.</strong> {sendError} Your message is preserved. Check your connection, then retry.</span>
+                : <span>Portal message to {activeConversation.participantName}</span>}
+              {isSending && <span>Sending secure message…</span>}
+            </div>
             <button className="primary-action" type="button" disabled={isSending || !reply.trim()} onClick={handleSend}>
-              {isSending ? 'Sending...' : 'Send'} <Send size={20} />
+              {isSending ? 'Sending…' : sendError ? 'Retry sending' : 'Send'} <Send size={20} />
             </button>
           </div>
-        </div>}
+        </div>
+        )}
       </section>
     </main>
   );
@@ -860,6 +984,9 @@ function AppointmentsPageLive({
   const [pendingRequestId, setPendingRequestId] = useState('');
   const [editingRequest, setEditingRequest] = useState<PortalData['appointmentRequests'][number] | null>(null);
   const [requestEditForm, setRequestEditForm] = useState({ reason: '', preferredDate: '', notes: '' });
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
   const pendingRequests = appointmentRequests.filter((request) => !['Cancelled', 'Rejected', 'Approved'].includes(request.status));
   const visibleRows = appointments
     .filter((appointment) => appointmentTab(appointment) === tab)
@@ -871,14 +998,14 @@ function AppointmentsPageLive({
   const lastVisit = pastRows[0];
 
   const runAppointmentAction = async (appointment: Appointment) => {
+    if ((appointment.secondaryAction || 'Cancel') !== 'Reschedule') {
+      requestAppointmentCancellation(appointment);
+      return;
+    }
     setPendingAppointmentId(appointment.id);
     setAppointmentError('');
     try {
-      if ((appointment.secondaryAction || 'Cancel') === 'Reschedule') {
-        await onReschedule(appointment.id);
-      } else {
-        await onCancel(appointment.id);
-      }
+      await onReschedule(appointment.id);
     } catch (error) {
       setAppointmentError(error instanceof Error ? error.message : 'Could not update appointment');
     } finally {
@@ -886,17 +1013,54 @@ function AppointmentsPageLive({
     }
   };
 
+  const requestAppointmentCancellation = (appointment: Appointment) => {
+    setConfirmError('');
+    setConfirmAction({
+      heading: 'Cancel this appointment?',
+      description: 'The reserved visit will be released. You can go back now without changing the appointment.',
+      itemLabel: `${appointment.service} — ${formatPatientDate(appointment.date)} at ${appointment.time || 'time pending'} with ${appointment.provider || appointment.clinician}`,
+      confirmLabel: 'Cancel appointment',
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        setConfirmError('');
+        setPendingAppointmentId(appointment.id);
+        try {
+          await onCancel(appointment.id);
+          setConfirmAction(null);
+        } catch (error) {
+          setConfirmError(error instanceof Error ? error.message : 'Could not cancel the appointment.');
+        } finally {
+          setConfirmBusy(false);
+          setPendingAppointmentId('');
+        }
+      },
+    });
+  };
+
   const removeRequest = async (requestId: string) => {
-    if (!window.confirm('Cancel this pending appointment request?')) return;
-    setPendingRequestId(requestId);
-    setAppointmentError('');
-    try {
-      await onCancelRequest(requestId);
-    } catch (error) {
-      setAppointmentError(error instanceof Error ? error.message : 'Could not cancel appointment request');
-    } finally {
-      setPendingRequestId('');
-    }
+    const request = appointmentRequests.find((item) => item.id === requestId);
+    if (!request) return;
+    setConfirmError('');
+    setConfirmAction({
+      heading: 'Cancel this appointment request?',
+      description: 'The care team will stop reviewing this request. You can keep it by going back.',
+      itemLabel: `${request.reason} — preferred ${formatPatientDate(request.preferredDate)}`,
+      confirmLabel: 'Cancel request',
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        setPendingRequestId(requestId);
+        setAppointmentError('');
+        try {
+          await onCancelRequest(requestId);
+          setConfirmAction(null);
+        } catch (error) {
+          setConfirmError(error instanceof Error ? error.message : 'Could not cancel appointment request');
+        } finally {
+          setConfirmBusy(false);
+          setPendingRequestId('');
+        }
+      },
+    });
   };
 
   const openRequestEdit = (request: PortalData['appointmentRequests'][number]) => {
@@ -939,7 +1103,11 @@ function AppointmentsPageLive({
   };
 
   return (
-    <main className="portal-main appointments-page">
+    <main
+      className="portal-main appointments-page"
+      data-nielsen-heuristic="match-between-system-and-real-world consistency-and-standards"
+      data-evidence-id="patient-friendly-appointments"
+    >
       <section className="appointments-title">
         <div>
           <p>Patient Portal <span>/</span> Appointments</p>
@@ -952,7 +1120,7 @@ function AppointmentsPageLive({
         <article><span>Next Visit</span><strong>{nextVisit ? `${nextVisit.date}, ${nextVisit.time || 'Time pending'}` : 'No upcoming visits'}</strong><p>{nextVisit ? `${nextVisit.provider || nextVisit.clinician} - ${nextVisit.department || nextVisit.type}` : 'Schedule a new appointment'}</p></article>
         <article><span>Pending Requests</span><strong>{pendingRequests.length} Request{pendingRequests.length === 1 ? '' : 's'}</strong><p>{pendingRequests[0] ? `${pendingRequests[0].reason} - Awaiting approval` : 'No pending requests'}</p></article>
         <article><span>Last Visit</span><strong>{lastVisit?.date || 'No prior visits'}</strong><p>{lastVisit ? `${lastVisit.service} - ${lastVisit.department || lastVisit.type}` : 'Clinical history unavailable'}</p></article>
-        <article><span>Fast Actions</span><div><button type="button" disabled={!canManage || !nextVisit || pendingAppointmentId === nextVisit.id} onClick={() => nextVisit && void onReschedule(nextVisit.id)}>Reschedule</button><button type="button" disabled={!canManage || !nextVisit || pendingAppointmentId === nextVisit.id} onClick={() => nextVisit && void onCancel(nextVisit.id)}>Cancel</button></div></article>
+        <article><span>Fast Actions</span><div><button type="button" disabled={!canManage || !nextVisit || pendingAppointmentId === nextVisit.id} onClick={() => nextVisit && void onReschedule(nextVisit.id)}>Reschedule</button><button type="button" disabled={!canManage || !nextVisit || pendingAppointmentId === nextVisit.id} onClick={() => nextVisit && requestAppointmentCancellation(nextVisit)}>Cancel</button></div></article>
       </section>
 
       {pendingRequests.length > 0 && <section className="portal-table-panel">
@@ -992,7 +1160,7 @@ function AppointmentsPageLive({
 
       <aside className="reschedule-note">
         <Information size={28} />
-        <p><strong>Need to reschedule within 24 hours?</strong><span>For urgent changes or appointments within the next 24 hours, please contact the clinic directly at +1 (555) 010-9988.</span></p>
+        <p><strong>Need to reschedule within 24 hours?</strong><span>For urgent changes or appointments within the next 24 hours, use the verified clinic details in your appointment or send a secure support message.</span></p>
         <button className="secondary-action" type="button" onClick={onSupport}>Contact Support</button>
       </aside>
       <ComposedModal open={Boolean(editingRequest)} onClose={() => setEditingRequest(null)} size="sm">
@@ -1000,6 +1168,7 @@ function AppointmentsPageLive({
         <ModalBody><Stack gap={5}><TextInput id="request-edit-date" type="date" min={new Date().toISOString().slice(0, 10)} labelText="Preferred date" value={requestEditForm.preferredDate} onChange={(event) => setRequestEditForm((current) => ({ ...current, preferredDate: event.target.value }))} /><TextInput id="request-edit-reason" labelText="Reason" value={requestEditForm.reason} onChange={(event) => setRequestEditForm((current) => ({ ...current, reason: event.target.value }))} /><TextArea id="request-edit-notes" labelText="Notes" value={requestEditForm.notes} onChange={(event) => setRequestEditForm((current) => ({ ...current, notes: event.target.value }))} />{appointmentError && <InlineNotification kind="error" lowContrast title="Cannot update request" subtitle={appointmentError} />}</Stack></ModalBody>
         <ModalFooter><Button kind="secondary" onClick={() => setEditingRequest(null)}>Cancel</Button><Button disabled={!requestEditForm.reason.trim() || !requestEditForm.preferredDate || Boolean(pendingRequestId)} onClick={() => void saveRequestEdit()}>{pendingRequestId ? 'Saving...' : 'Save request'}</Button></ModalFooter>
       </ComposedModal>
+      <ConfirmActionModal action={confirmAction} busy={confirmBusy} error={confirmError} onClose={() => !confirmBusy && setConfirmAction(null)} />
     </main>
   );
 }
@@ -1040,6 +1209,8 @@ function PrescriptionsPage({
   canRequestMedication,
   canChangePharmacy,
   canReview,
+  autoOpenRefill,
+  onRefillWorkflowOpened,
 }: {
   preferredPharmacy: PortalData['preferredPharmacy'];
   medicationSummary: {
@@ -1050,7 +1221,7 @@ function PrescriptionsPage({
   prescriptions: Prescription[];
   refillRequests: PortalData['refillRequests'];
   medicationRequests: PortalData['medicationRequests'];
-  onRefill: (prescriptionId: string) => Promise<void>;
+  onRefill: (prescriptionId: string) => Promise<PortalData['refillRequests'][number]>;
   onRequestMedication: (medicationName: string, notes: string) => Promise<void>;
   onCancelMedicationRequest: (requestId: string) => Promise<void>;
   onReviewMedicationRequest: (requestId: string, decision: 'Approved' | 'Rejected') => Promise<void>;
@@ -1064,6 +1235,8 @@ function PrescriptionsPage({
   canRequestMedication: boolean;
   canChangePharmacy: boolean;
   canReview: boolean;
+  autoOpenRefill: boolean;
+  onRefillWorkflowOpened: () => void;
 }) {
   const [pendingRefill, setPendingRefill] = useState('');
   const [notice, setNotice] = useState('');
@@ -1079,18 +1252,52 @@ function PrescriptionsPage({
   const [checkingInteraction, setCheckingInteraction] = useState(false);
   const [cancellingRequestId, setCancellingRequestId] = useState('');
   const [reviewingRequestId, setReviewingRequestId] = useState('');
+  const [refillPrescription, setRefillPrescription] = useState<Prescription | null>(null);
+  const [refillError, setRefillError] = useState('');
+  const [refillConfirmation, setRefillConfirmation] = useState<WorkflowConfirmationData | null>(null);
   const refillRequestIds = refillRequests.filter((request) => ['Pending', 'Queued'].includes(request.status)).map((request) => request.prescriptionId);
 
   useEffect(() => {
     setPharmacyForm(defaultPharmacyForm(preferredPharmacy));
   }, [preferredPharmacy]);
 
+  useEffect(() => {
+    if (!autoOpenRefill) return;
+    const refillable = prescriptions.find((prescription) => prescription.status === 'Refill Due' && !refillRequestIds.includes(prescription.id))
+      || prescriptions.find((prescription) => prescription.status !== 'Pending Request' && !refillRequestIds.includes(prescription.id));
+    if (refillable && canRefill) {
+      setRefillError('');
+      setRefillPrescription(refillable);
+    }
+    onRefillWorkflowOpened();
+  }, [autoOpenRefill, canRefill, onRefillWorkflowOpened, prescriptions, refillRequestIds]);
+
   const handleRefill = async (prescriptionId: string) => {
+    if (pendingRefill) return;
     setPendingRefill(prescriptionId);
     setNotice('');
+    setRefillError('');
     try {
-      await onRefill(prescriptionId);
-      setNotice('Refill request sent to your preferred pharmacy.');
+      const request = await onRefill(prescriptionId);
+      const prescription = prescriptions.find((item) => item.id === prescriptionId);
+      setRefillPrescription(null);
+      setRefillConfirmation({
+        kind: 'refill',
+        heading: 'Refill request received',
+        referenceId: request.id,
+        status: request.status,
+        details: [
+          { label: 'Medication', value: request.prescriptionName || prescription?.name || 'Prescription on file' },
+          { label: 'Dosage / directions', value: prescription?.frequency || prescription?.detail || 'See prescription label' },
+          { label: 'Prescriber', value: prescription?.prescriber || 'Care team prescriber on file' },
+          { label: 'Pharmacy', value: request.pharmacyName || preferredPharmacy.name },
+        ],
+        nextSteps: 'Your care team will review the refill. Its status will update in Prescriptions; approved requests are sent to the preferred pharmacy.',
+        nextActionLabel: 'Review prescriptions',
+        onNextAction: () => setRefillConfirmation(null),
+      });
+    } catch (error) {
+      setRefillError(error instanceof Error ? error.message : 'Could not send the refill request.');
     } finally {
       setPendingRefill('');
     }
@@ -1212,10 +1419,15 @@ function PrescriptionsPage({
                         className={prescription.status === 'Pending Request' || requested ? 'rx-action rx-action--muted' : 'rx-action'}
                         type="button"
                         disabled={!canRefill || prescription.status === 'Pending Request' || requested || pendingRefill === prescription.id}
-                        onClick={() => handleRefill(prescription.id)}
+                        aria-describedby={!canRefill ? `refill-restriction-${prescription.id}` : undefined}
+                        onClick={() => {
+                          setRefillError('');
+                          setRefillPrescription(prescription);
+                        }}
                       >
-                        {!canRefill ? 'Restricted' : requested || prescription.status === 'Pending Request' ? 'Pending' : pendingRefill === prescription.id ? 'Sending...' : 'Refill'}
+                        {!canRefill ? 'Restricted' : requested || prescription.status === 'Pending Request' ? 'Pending' : 'Refill'}
                       </button>
+                      {!canRefill && <span className="sr-only" id={`refill-restriction-${prescription.id}`}>Your account cannot submit refill requests.</span>}
                       <button type="button" onClick={() => void onViewLeaflet(prescription.id)}>Leaflet</button>
                     </td>
                   </tr>
@@ -1287,6 +1499,35 @@ function PrescriptionsPage({
           <Button disabled={!interactionMedication.trim() || checkingInteraction} onClick={handleInteractionCheck}>{checkingInteraction ? 'Checking...' : 'Check interaction'}</Button>
         </ModalFooter>
       </ComposedModal>
+      <ComposedModal open={Boolean(refillPrescription)} onClose={() => !pendingRefill && setRefillPrescription(null)} size="sm">
+        <ModalHeader title="Review refill request" />
+        <ModalBody>
+          {refillPrescription && (
+            <section
+              className="refill-review"
+              data-nielsen-heuristic="recognition-rather-than-recall error-prevention"
+              data-evidence-id="refill-recognition-form"
+            >
+              <p>Confirm the prescription and preferred pharmacy before submitting.</p>
+              <dl>
+                <div><dt>Medication</dt><dd>{refillPrescription.name}</dd></div>
+                <div><dt>Dosage / route</dt><dd>{refillPrescription.detail}</dd></div>
+                <div><dt>Directions</dt><dd>{refillPrescription.frequency}</dd></div>
+                <div><dt>Prescriber</dt><dd>{refillPrescription.prescriber || 'Care team prescriber on file'}</dd></div>
+                <div><dt>Preferred pharmacy</dt><dd>{preferredPharmacy.name}<small>{preferredPharmacy.addressLine1}</small></dd></div>
+              </dl>
+              <OperationStatus busy={Boolean(pendingRefill)} busyLabel="Sending refill request…" error={refillError} />
+            </section>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button kind="secondary" disabled={Boolean(pendingRefill)} onClick={() => setRefillPrescription(null)}>Cancel</Button>
+          <Button disabled={!refillPrescription || Boolean(pendingRefill)} onClick={() => refillPrescription && void handleRefill(refillPrescription.id)}>
+            {pendingRefill ? 'Sending…' : 'Submit refill request'}
+          </Button>
+        </ModalFooter>
+      </ComposedModal>
+      <WorkflowConfirmation confirmation={refillConfirmation} onClose={() => setRefillConfirmation(null)} />
     </main>
   );
 }
@@ -1565,6 +1806,35 @@ function ResourcesPage({
     }
   };
 
+  const openResource = async (resourceId: string, action = 'Read') => {
+    try {
+      // Recording an interaction invalidates resource queries. Resolve the
+      // detail first so that invalidation cannot abort the view request.
+      await onDetail(resourceId);
+      if (canInteract) await record(resourceId, action);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not open this resource.');
+    }
+  };
+
+  const trustedLink = (
+    resource: { sourceUrl?: string; sourceLabel?: string },
+    resourceId: string,
+    label = `Open ${resource.sourceLabel || 'official source'}`,
+  ) => resource.sourceUrl ? (
+    <a
+      className="trusted-resource-link"
+      href={resource.sourceUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => {
+        if (canInteract) void record(resourceId, 'Read trusted source');
+      }}
+    >
+      {label} <Launch size={15} />
+    </a>
+  ) : null;
+
   return (
     <main className="portal-main resources-page">
       <section className="page-title resources-title">
@@ -1588,7 +1858,10 @@ function ResourcesPage({
             <h3>{resources.featured.title}</h3>
             <p>{resources.featured.detail}</p>
             <small>{resources.featured.meta} - {resources.featured.updated}</small>
-            <button className="primary-action" type="button" onClick={() => { void onDetail(resources.featured.id); if (canInteract) void record(resources.featured.id, 'Read'); }}>{resources.featured.actionLabel}<Launch size={18} /></button>
+            <div className="resource-actions">
+              <button className="primary-action" type="button" onClick={() => void openResource(resources.featured.id)}>{resources.featured.actionLabel}<Document size={18} /></button>
+              {trustedLink(resources.featured, resources.featured.id)}
+            </div>
           </article>
           <aside className="resource-media">
             <div className="resource-image resource-image--bp">
@@ -1602,7 +1875,14 @@ function ResourcesPage({
             </div>
             <h3>{resources.video.title}</h3>
             <p>{resources.video.detail}</p>
-            <footer><span>{resources.video.category}</span>{canInteract && <button type="button" aria-label="Save video" onClick={() => void toggleSaved(resources.video.id)}>{savedIds.includes(resources.video.id) ? 'Unsave' : 'Save'}</button>}</footer>
+            <footer>
+              <span>{resources.video.category}</span>
+              <div className="resource-actions">
+                <button type="button" onClick={() => void openResource(resources.video.id)}>View</button>
+                {canInteract && <button type="button" aria-label="Save video" onClick={() => void toggleSaved(resources.video.id)}>{savedIds.includes(resources.video.id) ? 'Unsave' : 'Save'}</button>}
+              </div>
+            </footer>
+            {trustedLink(resources.video, resources.video.id)}
           </article>
         </div>
       </section>
@@ -1612,13 +1892,16 @@ function ResourcesPage({
           <article className="resource-group" key={group.id}>
             <h2>{group.title}</h2>
             {group.items.map((item, index) => {
-              const resourceId = `${group.id}-${index}`;
+              const resourceId = item.id || `${group.id}-${index}`;
               return (
-                <button type="button" key={resourceId} onClick={() => { void onDetail(resourceId); if (canInteract) void record(resourceId, item.action); }}>
-                  <strong>{item.title}</strong>
-                  <span>{item.detail}</span>
-                  <small>{item.action}</small>
-                </button>
+                <div className="resource-group-item" key={resourceId}>
+                  <button type="button" onClick={() => void openResource(resourceId, item.action)}>
+                    <strong>{item.title}</strong>
+                    <span>{item.detail}</span>
+                    <small>{item.action}</small>
+                  </button>
+                  {trustedLink(item, resourceId)}
+                </div>
               );
             })}
           </article>
@@ -1644,7 +1927,13 @@ function ResourcesPage({
                   <td><strong>{item.title}</strong><small>{item.detail}</small></td>
                   <td>{item.category}</td>
                   <td>{item.updated}</td>
-                  <td><button type="button" onClick={() => { void onDetail(item.id); if (canInteract) void record(item.id, 'Read'); }}>Read</button>{canInteract && <><button type="button" onClick={() => void toggleSaved(item.id)}>{savedIds.includes(item.id) ? 'Unsave' : 'Save'}</button><button type="button" onClick={() => void onDownload(item.id)}>Download</button></>}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button type="button" onClick={() => void openResource(item.id)}>Read</button>
+                      {canInteract && <><button type="button" onClick={() => void toggleSaved(item.id)}>{savedIds.includes(item.id) ? 'Unsave' : 'Save'}</button><button type="button" onClick={() => void onDownload(item.id)}>Download</button></>}
+                      {trustedLink(item, item.id, item.sourceLabel || 'Official source')}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1664,6 +1953,8 @@ function ReferralsPage({
   onCancel,
   onExport,
   onDetail,
+  onContact,
+  onCalendar,
 }: {
   referrals: PortalData['referrals'];
   canManage: boolean;
@@ -1673,6 +1964,8 @@ function ReferralsPage({
   onCancel: (referralId: string) => Promise<void>;
   onExport: () => Promise<void>;
   onDetail: (referralId: string) => Promise<void>;
+  onContact: (referralId: string) => Promise<void>;
+  onCalendar: (referralId: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState<'All Status' | 'Pending' | 'Scheduled' | 'Completed'>('All Status');
   const [requestOpen, setRequestOpen] = useState(false);
@@ -1698,7 +1991,15 @@ function ReferralsPage({
   };
 
   const runAction = async (referralId: string, action: string) => {
-    if (['Details', 'View Results', 'View Calendar', 'Contact', 'Clinic Profile'].includes(action)) {
+    if (action === 'Contact' || action === 'Clinic Profile') {
+      await onContact(referralId);
+      return;
+    }
+    if (action === 'View Calendar') {
+      await onCalendar(referralId);
+      return;
+    }
+    if (['Details', 'View Results'].includes(action)) {
       await onDetail(referralId);
       return;
     }
@@ -1747,7 +2048,16 @@ function ReferralsPage({
                   <td><strong>{row.provider}</strong><small>{row.specialty}</small></td>
                   <td><em>{row.reason}</em></td>
                   <td><span className={`referral-status referral-status--${row.status.toLowerCase()}`}>{row.status}</span></td>
-                  <td>{row.appointment && <small>{row.appointment}</small>} {row.actions.filter((action) => ['Details', 'View Results', 'View Calendar', 'Contact'].includes(action) || (canReview && action === 'Resend Request')).map((action) => <button type="button" key={action} onClick={() => void runAction(row.id, action)}>{action}</button>)} {canReview && row.status === 'Pending' && <><button type="button" onClick={() => void runAction(row.id, 'Approved')}>Approve</button><button type="button" onClick={() => void runAction(row.id, 'Rejected')}>Reject</button></>} {canReview && row.status === 'Approved' && <button type="button" onClick={() => void runAction(row.id, 'Scheduled')}>Mark scheduled</button>} {canReview && row.status === 'Scheduled' && <button type="button" onClick={() => void runAction(row.id, 'Completed')}>Complete</button>} {!canReview && canManage && row.status === 'Pending' && <button type="button" onClick={() => void runAction(row.id, 'Cancel')}>Cancel request</button>}</td>
+                  <td>
+                    {row.appointment && <small>{row.appointment}</small>}
+                    <div className="table-actions">
+                      {row.actions.filter((action) => ['Details', 'View Results', 'View Calendar', 'Contact'].includes(action) || (canReview && action === 'Resend Request')).map((action) => <button type="button" key={action} onClick={() => void runAction(row.id, action)}>{action}</button>)}
+                      {canReview && row.status === 'Pending' && <><button type="button" onClick={() => void runAction(row.id, 'Approved')}>Approve</button><button type="button" onClick={() => void runAction(row.id, 'Rejected')}>Reject</button></>}
+                      {canReview && row.status === 'Approved' && <button type="button" onClick={() => void runAction(row.id, 'Scheduled')}>Mark scheduled</button>}
+                      {canReview && row.status === 'Scheduled' && <button type="button" onClick={() => void runAction(row.id, 'Completed')}>Complete</button>}
+                      {!canReview && canManage && row.status === 'Pending' && <button type="button" onClick={() => void runAction(row.id, 'Cancel')}>Cancel request</button>}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1767,7 +2077,7 @@ function ReferralsPage({
           <p>{referrals.focus.address}</p>
           <p>{referrals.focus.phone}</p>
           <p>{referrals.focus.email}</p>
-          <button type="button" onClick={() => void onDetail(focusReferralId)}>Clinic Profile</button>
+          <button type="button" onClick={() => void runAction(focusReferralId, 'Clinic Profile')}>Clinic Profile</button>
         </aside>
       </div>
 
@@ -1923,12 +2233,12 @@ function ImmunizationsPage({
                 <td>{item.dose}</td>
                 <td>{item.provider}</td>
                 <td>{item.route}</td>
-                <td>
+                <td><div className="table-actions">
                   <button type="button" onClick={() => void onDetail(item.id)}>View</button>
                   {canManage && patientEditable && <button type="button" aria-label={`Edit ${item.vaccine}`} onClick={() => openEdit(item)}><Edit size={15} /></button>}
                   {canManage && patientEditable && <button type="button" aria-label={`Delete ${item.vaccine}`} disabled={deletingId === item.id} onClick={() => void handleDelete(item.id, item.vaccine)}><TrashCan size={15} /></button>}
                   {canVerify && pendingVerification && <><button type="button" disabled={verifyingId === item.id} onClick={() => void handleVerify(item.id, 'Verified')}>Verify</button><button type="button" disabled={verifyingId === item.id} onClick={() => void handleVerify(item.id, 'Rejected')}>Reject</button></>}
-                </td>
+                </div></td>
               </tr>;
             })}</tbody>
           </table>
@@ -1959,6 +2269,11 @@ function ImmunizationsPage({
       </ComposedModal>
     </main>
   );
+}
+
+function formatTrendReadingDate(value: string) {
+  if (!value || Number.isNaN(Date.parse(value))) return 'Date not recorded';
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function HealthTrendsPage({
@@ -2126,8 +2441,16 @@ function HealthTrendsPage({
               <p><span>Latest</span><strong>{metric.latest || metric.latestValue}</strong><small>{metric.unit}</small></p>
               {metric.averageLabel && <p><span>{metric.averageLabel}</span><strong>{metric.average}</strong></p>}
             </footer>
-            {readingsInRange(metric).map((reading) => <div className="goal-row" key={reading.id}><span>{new Date(reading.recordedAt).toLocaleDateString()}</span><strong>{reading.value} {reading.unit || metric.unit}</strong>{canManage && <><button type="button" aria-label={`Edit ${metric.label} reading`} onClick={() => openEditReading(metric, reading)}><Edit size={14} /></button><button type="button" disabled={deletingReadingId === reading.id} aria-label={`Delete ${metric.label} reading`} onClick={() => void handleDeleteReading(metric.id, reading.id)}><TrashCan size={14} /></button></>}</div>)}
-            {canManage && <button type="button" onClick={() => openAddReading(metric)}>Add {metric.label} reading</button>}
+            <div className="metric-readings">
+              {readingsInRange(metric).map((reading) => (
+                <div className="metric-reading-row" key={reading.id}>
+                  <span>{formatTrendReadingDate(reading.recordedAt)}</span>
+                  <strong>{reading.value} {reading.unit || metric.unit}</strong>
+                  {canManage && <div className="row-actions"><button type="button" aria-label={`Edit ${metric.label} reading`} title="Edit reading" onClick={() => openEditReading(metric, reading)}><Edit size={16} /></button><button type="button" disabled={deletingReadingId === reading.id} aria-label={`Delete ${metric.label} reading`} title="Delete reading" onClick={() => void handleDeleteReading(metric.id, reading.id)}><TrashCan size={16} /></button></div>}
+                </div>
+              ))}
+            </div>
+            {canManage && <button className="metric-add-button" type="button" onClick={() => openAddReading(metric)}><Add size={16} /> Add reading</button>}
           </article>
         ))}
       </section>
@@ -2140,12 +2463,11 @@ function HealthTrendsPage({
       <section className="health-goals">
         <article><h2>Health Goals Status</h2>
           {activeGoals.map((goal) => (
-            <div key={goal.id} className="goal-row">
+            <div key={goal.id} className="health-goal-row">
               <span>{goal.label}</span>
               <i><b style={{ width: `${goal.progress}%` }} /></i>
               <strong>{goal.progress}%</strong>
-              {canManage && <button type="button" aria-label={`Edit goal ${goal.label}`} onClick={() => openEditGoal(goal)}><Edit size={14} /></button>}
-              {canManage && <button type="button" aria-label={`Delete goal ${goal.label}`} disabled={deletingGoalId === goal.id} onClick={() => void handleDeleteGoal(goal.id, goal.label)}><TrashCan size={14} /></button>}
+              {canManage && <div className="row-actions"><button type="button" aria-label={`Edit goal ${goal.label}`} title="Edit goal" onClick={() => openEditGoal(goal)}><Edit size={16} /></button><button type="button" aria-label={`Delete goal ${goal.label}`} title="Delete goal" disabled={deletingGoalId === goal.id} onClick={() => void handleDeleteGoal(goal.id, goal.label)}><TrashCan size={16} /></button></div>}
             </div>
           ))}
           {!activeGoals.length && <p className="empty-appointments">No health goals set yet. Add a goal to track progress.</p>}
@@ -2213,7 +2535,7 @@ function FamilyAccessPage({
   shareRecords: boolean;
   mentalHealthNotes: boolean;
   onShareRecordsChange: (input: { shareRecords?: boolean; mentalHealthNotes?: boolean }) => Promise<void>;
-  onInviteProxy: (input: { name: string; email: string; relationship: string; permissions: string }) => Promise<void>;
+  onInviteProxy: (input: { name: string; email: string; relationship: string; permissions: string }) => Promise<PortalData['familyAccess']['proxies'][number]>;
   onProxyPermissionChange: (proxyId: string, permissions: string) => Promise<void>;
   onResendProxy: (proxyId: string) => Promise<void>;
   onRevokeProxy: (proxyId: string) => Promise<void>;
@@ -2234,6 +2556,12 @@ function FamilyAccessPage({
   const [dependentForm, setDependentForm] = useState({ name: '', relationship: 'Dependent', detail: 'Last Visit: Pending', access: 'View Only' });
   const [editingDependentId, setEditingDependentId] = useState('');
   const [reportSummary, setReportSummary] = useState('');
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [confirmation, setConfirmation] = useState<WorkflowConfirmationData | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const toggleShareRecords = async () => {
     setSavingShare(true);
@@ -2254,10 +2582,59 @@ function FamilyAccessPage({
   };
 
   const submitProxy = async () => {
-    await onInviteProxy(proxyForm);
-    setInviteOpen(false);
-    setProxyForm({ name: '', email: '', relationship: 'Spouse', permissions: 'View Only' });
-    setNotice('Proxy invite sent.');
+    if (inviteSubmitting) return;
+    setInviteSubmitting(true);
+    setInviteError('');
+    try {
+      const submittedForm = { ...proxyForm };
+      const proxy = await onInviteProxy(submittedForm);
+      setInviteOpen(false);
+      setProxyForm({ name: '', email: '', relationship: 'Spouse', permissions: 'View Only' });
+      setConfirmation({
+        kind: 'proxy',
+        heading: 'Proxy invitation sent',
+        referenceId: proxy.id,
+        status: proxy.status || 'Invitation pending',
+        details: [
+          { label: 'Proxy', value: submittedForm.name },
+          { label: 'Relationship', value: submittedForm.relationship },
+          { label: 'Permissions', value: submittedForm.permissions },
+          { label: 'Delivery', value: `Invitation queued for ${submittedForm.email}` },
+        ],
+        nextSteps: 'The invitation must be accepted before access is granted. You can review, resend, or revoke it from this page.',
+        nextActionLabel: 'Review family access',
+        onNextAction: () => setConfirmation(null),
+      });
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : 'Could not send the proxy invitation.');
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
+  const requestProxyRevocation = (proxy: PortalData['familyAccess']['proxies'][number]) => {
+    setConfirmError('');
+    setConfirmAction({
+      heading: proxy.status === 'Active' ? 'Revoke proxy access?' : 'Cancel proxy invitation?',
+      description: proxy.status === 'Active'
+        ? 'This person will no longer be able to access your portal information. The action is recorded in the access history.'
+        : 'The invitation link will stop working and can no longer be accepted.',
+      itemLabel: `${proxy.name} — ${proxy.permissions}`,
+      confirmLabel: proxy.status === 'Active' ? 'Revoke access' : 'Cancel invitation',
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        setConfirmError('');
+        try {
+          await onRevokeProxy(proxy.id);
+          setConfirmAction(null);
+          setNotice(proxy.status === 'Active' ? `${proxy.name} access revoked.` : `${proxy.name} invitation cancelled.`);
+        } catch (error) {
+          setConfirmError(error instanceof Error ? error.message : 'Could not update proxy access.');
+        } finally {
+          setConfirmBusy(false);
+        }
+      },
+    });
   };
 
   const submitDependent = async () => {
@@ -2300,11 +2677,11 @@ function FamilyAccessPage({
   return (
     <main className="portal-main family-page">
       <section className="records-title"><div><h1>Family & Proxy Access</h1><p>Manage who can view your healthcare information and which accounts you are authorized to manage on behalf of others. All access is logged for your security.</p></div></section>
-      {notice && <p className="workspace-notice">{notice}</p>}
+      {notice && <p className="workspace-notice" role="status" aria-live="polite">{notice}</p>}
       <div className="family-grid">
         <section className="portal-table-panel">
           <header><h2>Access to My Records</h2>{canManage && <button className="primary-action" type="button" onClick={() => setInviteOpen(true)}><Add size={17} /> Invite Proxy</button>}</header>
-          <div className="portal-table-wrap"><table><thead><tr><th>Proxy Name</th><th>Relationship</th><th>Permissions</th><th>Actions</th></tr></thead><tbody>{familyAccess.proxies.map((proxy) => <tr key={proxy.id}><td><strong>{proxy.name}</strong><small>{proxy.status !== 'Active' ? proxy.status : ''}</small></td><td>{proxy.relationship}</td><td>{proxy.status === 'Active' ? <select disabled={!canManage} value={proxy.permissions} onChange={(event) => void onProxyPermissionChange(proxy.id, event.target.value)}><option>Full Access</option><option>View Only</option><option>Billing Only</option></select> : <em>{proxy.permissions}</em>}</td><td>{canManage ? proxy.status === 'Active' ? <button type="button" onClick={() => void onRevokeProxy(proxy.id)}>Revoke</button> : <><button type="button" onClick={() => void onResendProxy(proxy.id)}>Resend</button><button type="button" onClick={() => void onRevokeProxy(proxy.id)}>Cancel</button></> : <span>View only</span>}</td></tr>)}</tbody></table></div>
+          <div className="portal-table-wrap"><table><thead><tr><th>Proxy Name</th><th>Relationship</th><th>Permissions</th><th>Actions</th></tr></thead><tbody>{familyAccess.proxies.map((proxy) => <tr key={proxy.id}><td><strong>{proxy.name}</strong><small>{proxy.status !== 'Active' ? proxy.status : ''}</small></td><td>{proxy.relationship}</td><td>{proxy.status === 'Active' ? <select disabled={!canManage} value={proxy.permissions} onChange={(event) => void onProxyPermissionChange(proxy.id, event.target.value)}><option>Full Access</option><option>View Only</option><option>Billing Only</option></select> : <em>{proxy.permissions}</em>}</td><td>{canManage ? proxy.status === 'Active' ? <button type="button" onClick={() => requestProxyRevocation(proxy)}>Revoke</button> : <><button type="button" onClick={() => void onResendProxy(proxy.id)}>Resend</button><button type="button" onClick={() => requestProxyRevocation(proxy)}>Cancel</button></> : <span>View only</span>}</td></tr>)}</tbody></table></div>
         </section>
         <aside className="accounts-access">
           <h2>Accounts I Access</h2>
@@ -2330,8 +2707,8 @@ function FamilyAccessPage({
 
       <ComposedModal open={inviteOpen} onClose={() => setInviteOpen(false)} size="sm">
         <ModalHeader title="Invite proxy" />
-        <ModalBody><Stack gap={5}><TextInput id="proxy-name" labelText="Name" value={proxyForm.name} onChange={(event) => setProxyForm((current) => ({ ...current, name: event.target.value }))} /><TextInput id="proxy-email" type="email" labelText="Invitation email" value={proxyForm.email} onChange={(event) => setProxyForm((current) => ({ ...current, email: event.target.value }))} /><TextInput id="proxy-relationship" labelText="Relationship" value={proxyForm.relationship} onChange={(event) => setProxyForm((current) => ({ ...current, relationship: event.target.value }))} /><TextInput id="proxy-permissions" labelText="Permissions" value={proxyForm.permissions} onChange={(event) => setProxyForm((current) => ({ ...current, permissions: event.target.value }))} /></Stack></ModalBody>
-        <ModalFooter><Button kind="secondary" onClick={() => setInviteOpen(false)}>Cancel</Button><Button disabled={!proxyForm.name.trim() || !/^\S+@\S+\.\S+$/.test(proxyForm.email)} onClick={submitProxy}>Send invite</Button></ModalFooter>
+        <ModalBody><Stack gap={5}><TextInput id="proxy-name" labelText="Name *" value={proxyForm.name} onChange={(event) => setProxyForm((current) => ({ ...current, name: event.target.value }))} /><TextInput id="proxy-email" type="email" labelText="Invitation email *" value={proxyForm.email} onChange={(event) => setProxyForm((current) => ({ ...current, email: event.target.value }))} /><TextInput id="proxy-relationship" labelText="Relationship *" value={proxyForm.relationship} onChange={(event) => setProxyForm((current) => ({ ...current, relationship: event.target.value }))} /><TextInput id="proxy-permissions" labelText="Permissions *" value={proxyForm.permissions} onChange={(event) => setProxyForm((current) => ({ ...current, permissions: event.target.value }))} /><OperationStatus busy={inviteSubmitting} busyLabel="Sending invitation…" error={inviteError} /></Stack></ModalBody>
+        <ModalFooter><Button kind="secondary" disabled={inviteSubmitting} onClick={() => setInviteOpen(false)}>Cancel</Button><Button disabled={inviteSubmitting || !proxyForm.name.trim() || !/^\S+@\S+\.\S+$/.test(proxyForm.email)} onClick={submitProxy}>{inviteSubmitting ? 'Sending…' : 'Send invite'}</Button></ModalFooter>
       </ComposedModal>
 
       <ComposedModal open={dependentOpen} onClose={() => setDependentOpen(false)} size="sm">
@@ -2345,6 +2722,8 @@ function FamilyAccessPage({
         <ModalBody><TextArea id="unauthorized-report" labelText="What happened?" value={reportSummary} onChange={(event) => setReportSummary(event.target.value)} /></ModalBody>
         <ModalFooter><Button kind="secondary" onClick={() => setReportOpen(false)}>Cancel</Button><Button disabled={!reportSummary.trim()} onClick={submitReport}>Submit report</Button></ModalFooter>
       </ComposedModal>
+      <WorkflowConfirmation confirmation={confirmation} onClose={() => setConfirmation(null)} />
+      <ConfirmActionModal action={confirmAction} busy={confirmBusy} error={confirmError} onClose={() => !confirmBusy && setConfirmAction(null)} />
     </main>
   );
 }
@@ -2372,6 +2751,12 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const [supportForm, setSupportForm] = useState({ subject: '', body: '' });
   const [supportNotice, setSupportNotice] = useState('');
   const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [printableView, setPrintableView] = useState<PrintableViewRequest | null>(null);
+  const [workflowConfirmation, setWorkflowConfirmation] = useState<WorkflowConfirmationData | null>(null);
+  const [openRefillWorkflow, setOpenRefillWorkflow] = useState(false);
+  const submissionLockRef = useRef(false);
+  const bookingTriggerRef = useRef<HTMLElement | null>(null);
 
   const loadPortal = useCallback(async () => {
     setIsLoading(true);
@@ -2389,7 +2774,22 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     void loadPortal();
   }, [loadPortal]);
 
+  useEffect(() => {
+    const handleUnhandledAction = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (!(reason instanceof Error)) return;
+      event.preventDefault();
+      setActionError(reason.message || 'The requested action could not be completed.');
+      console.error('Unhandled portal action', reason);
+    };
+    window.addEventListener('unhandledrejection', handleUnhandledAction);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandledAction);
+  }, []);
+
+  useEffect(() => subscribeToPrintableView(setPrintableView), []);
+
   const navigate = useCallback((nextRoute: PortalRoute) => {
+    setActionError('');
     routerNavigate(pathForRoute(nextRoute));
   }, [routerNavigate]);
 
@@ -2419,6 +2819,9 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const openBooking = useCallback((preset: Partial<typeof initialVisitForm> = {}, appointmentId = '') => {
+    if (document.activeElement instanceof HTMLElement) {
+      bookingTriggerRef.current = document.activeElement;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const requestedDate = preset.date || preset.preferredDate || '';
@@ -2464,6 +2867,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   }, [messageRecipients, portal]);
 
   const handleVisitSubmit = async () => {
+    if (isSubmitting || submissionLockRef.current) return;
     const date = visitForm.date.trim() || visitForm.preferredDate.trim();
     const missingFields = [
       ['service', visitForm.service],
@@ -2490,6 +2894,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
       setFormError(reschedulingAppointmentId ? 'You do not have permission to reschedule appointments.' : 'You do not have permission to request appointments.');
       return;
     }
+    submissionLockRef.current = true;
     setIsSubmitting(true);
     setFormError('');
     try {
@@ -2498,24 +2903,55 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
         date,
         preferredDate: date,
       };
+      let confirmationReference = '';
+      let confirmationStatus = '';
+      let confirmationHeading = '';
       if (reschedulingAppointmentId) {
-        await rescheduleAppointment(reschedulingAppointmentId, {
+        const appointment = await rescheduleAppointment(reschedulingAppointmentId, {
           date: payload.date,
           time: payload.time,
           provider: payload.provider,
           department: payload.department,
           notes: payload.notes || payload.reason,
         });
+        confirmationReference = appointment.id;
+        confirmationStatus = appointment.status;
+        confirmationHeading = 'Appointment rescheduled';
       } else {
-        await createVisitRequest(payload);
+        const request = await createVisitRequest(payload);
+        confirmationReference = request.id;
+        confirmationStatus = request.status;
+        confirmationHeading = 'Appointment request received';
       }
       await refreshPortal();
       setBookingOpen(false);
       setReschedulingAppointmentId('');
       setVisitForm(initialVisitForm);
+      setWorkflowConfirmation({
+        kind: 'appointment',
+        heading: confirmationHeading,
+        referenceId: confirmationReference,
+        status: confirmationStatus,
+        details: [
+          { label: 'Service', value: payload.service },
+          { label: 'Provider', value: payload.provider },
+          { label: 'Date and time', value: `${formatPatientDate(payload.date)} at ${payload.time}` },
+          { label: 'Location', value: payload.location || 'Location will be confirmed' },
+          { label: 'Reason', value: payload.reason },
+        ],
+        nextSteps: reschedulingAppointmentId
+          ? 'Your updated appointment appears in Appointments. Review the details before your visit.'
+          : 'Your care team will review the request and confirm the appointment. The request remains visible under Appointments.',
+        nextActionLabel: 'View appointments',
+        onNextAction: () => {
+          setWorkflowConfirmation(null);
+          navigate('appointments');
+        },
+      });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not send appointment request');
     } finally {
+      submissionLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -2529,6 +2965,8 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
       setFormError('You do not have permission to send messages.');
       return;
     }
+    if (submissionLockRef.current) return;
+    submissionLockRef.current = true;
     setIsSubmitting(true);
     setFormError('');
     try {
@@ -2539,6 +2977,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not send message');
     } finally {
+      submissionLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -2647,8 +3086,9 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   };
 
   const handlePrescriptionRefill = async (prescriptionId: string) => {
-    await requestPrescriptionRefill(prescriptionId);
+    const request = await requestPrescriptionRefill(prescriptionId);
     await refreshPortal();
+    return request;
   };
 
   const handleMedicationRequest = async (medicationName: string, notes: string) => {
@@ -2696,12 +3136,14 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleBalancePayment = async (input: BillingPaymentInput = {}) => {
+    let updatedBilling;
     if (input.invoiceId && input.amount !== undefined) {
-      await payInvoice(input.invoiceId, input.amount, input.paymentMethodId);
+      updatedBilling = await payInvoice(input.invoiceId, input.amount, input.paymentMethodId);
     } else {
-      await payFullBalance(input.paymentMethodId);
+      updatedBilling = await payFullBalance(input.paymentMethodId);
     }
     await refreshPortal();
+    return updatedBilling;
   };
 
   const handlePaymentMethodCreate = async (input: BillingPaymentMethodInput) => {
@@ -2846,6 +3288,16 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     openPrintableView('Referral Detail', detail);
   };
 
+  const handleReferralContact = async (referralId: string) => {
+    const contact = await getReferralContact(referralId);
+    openPrintableView('Referral Clinic Profile', contact);
+  };
+
+  const handleReferralCalendar = async (referralId: string) => {
+    const calendar = await getReferralCalendar(referralId);
+    openPrintableView('Referral Appointment', calendar);
+  };
+
   const handleResourceInteraction = async (resourceId: string, action: string) => {
     await recordResourceInteraction(resourceId, action);
     await refreshPortal();
@@ -2954,8 +3406,9 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleInviteProxy = async (input: { name: string; email: string; relationship: string; permissions: string }) => {
-    await inviteProxy(input);
+    const proxy = await inviteProxy(input);
     await refreshPortal();
+    return proxy;
   };
 
   const handleProxyPermissionChange = async (proxyId: string, permissions: string) => {
@@ -3080,6 +3533,7 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const currentPatient = portal.dashboard.patient;
   const permissions = portal.access.permissions;
   const activeRoute = canAccessRoute(route, permissions) ? route : firstAllowedRoute(permissions);
+  const featureError = portal.featureErrors?.[activeRoute] || '';
   const canRequestAppointments = hasPermission(permissions, 'appointments.request');
   const canManageAppointments = hasPermission(permissions, 'appointments.manage');
   const canApproveAppointments = hasPermission(permissions, 'appointments.approve');
@@ -3092,8 +3546,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const canPayBills = hasPermission(permissions, 'billing.pay');
   const canManagePaymentMethods = hasPermission(permissions, 'billing.paymentMethods.manage');
   const canUpdateProfile = hasPermission(permissions, 'profile.update');
-  const canManageFamilyAccess = hasPermission(permissions, 'family.manage');
-  const canReviewAccessReports = hasPermission(permissions, 'family.reports.review');
   const canManageReferrals = hasPermission(permissions, 'referrals.manage');
   const canReviewReferrals = hasPermission(permissions, 'referrals.review');
   const canManageNotes = hasPermission(permissions, 'records.notes.manage');
@@ -3103,6 +3555,8 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
   const canVerifyImmunizations = hasPermission(permissions, 'immunizations.verify');
   const canInteractWithResources = hasPermission(permissions, 'resources.interact');
   const canManageNotifications = hasPermission(permissions, 'notifications.manage');
+  const canManageFamily = hasPermission(permissions, 'family.manage');
+  const canReviewFamilyReports = hasPermission(permissions, 'family.reports.review');
   const canSelectPatientContext = hasPermission(permissions, 'patients.context.select');
   const canConfigureAccess = hasPermission(permissions, 'admin.access.view');
   const canManageRoles = hasPermission(permissions, 'admin.access.manage');
@@ -3116,13 +3570,17 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
     setBookingOpen(false);
     setReschedulingAppointmentId('');
     setFormError('');
+    window.setTimeout(() => bookingTriggerRef.current?.focus(), 0);
   };
 
   return (
-    <div className="portal-app">
+    <div className="portal-app" data-evidence-id="portal-shell">
       <PortalHeader route={activeRoute} onNavigate={navigate} onNotifications={handleNotifications} onHelp={handleHelp} patientName={currentPatient.name} permissions={permissions} patientContexts={canSelectPatientContext ? portal.patientContexts : []} currentPatientContextId={portal.currentPatientContext?.id || ''} onPatientContextChange={canSelectPatientContext ? (contextId) => void handlePatientContextChange(contextId) : undefined} />
       <div className="portal-frame">
         <PortalSidebar route={activeRoute} onNavigate={navigate} onLogout={onLogout} patient={currentPatient} permissions={permissions} />
+        <div className="portal-content">
+        {featureError && <InlineNotification className="portal-action-notification" kind="warning" lowContrast title="Some information is temporarily unavailable" subtitle={featureError} hideCloseButton />}
+        {actionError && <InlineNotification className="portal-action-notification" kind="error" lowContrast title="Action could not be completed" subtitle={actionError} onCloseButtonClick={() => setActionError('')} />}
         {activeRoute === 'home' && (
           <HomePage
             fallbackPortal={portal}
@@ -3215,6 +3673,8 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
             canRequestMedication={canRequestMedication}
             canChangePharmacy={canChangePharmacy}
             canReview={canReviewPrescriptions}
+            autoOpenRefill={openRefillWorkflow}
+            onRefillWorkflowOpened={() => setOpenRefillWorkflow(false)}
           />
         )}
         {activeRoute === 'billing' && (
@@ -3238,7 +3698,6 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
             canManageInvoices={hasPermission(permissions, 'billing.invoices.manage')}
           />
         )}
-        {activeRoute === 'resources' && <ResourcesPage resources={portal.educationalResources} interactions={portal.resourceInteractions} onInteraction={handleResourceInteraction} onDetail={handleResourceDetail} onDownload={downloadResource} canInteract={canInteractWithResources} />}
         {activeRoute === 'family' && (
           <FamilyAccessPage
             familyAccess={portal.familyAccess}
@@ -3254,10 +3713,11 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
             onDownloadPolicy={handleAccessPolicy}
             onReportUnauthorized={handleUnauthorizedReport}
             onReviewReport={handleAccessReportReview}
-            canManage={canManageFamilyAccess}
-            canReviewReports={canReviewAccessReports}
+            canManage={canManageFamily}
+            canReviewReports={canReviewFamilyReports}
           />
         )}
+        {activeRoute === 'resources' && <ResourcesPage resources={portal.educationalResources} interactions={portal.resourceInteractions} onInteraction={handleResourceInteraction} onDetail={handleResourceDetail} onDownload={downloadResource} canInteract={canInteractWithResources} />}
         {activeRoute === 'referrals' && (
           <ReferralsPage
             referrals={portal.referrals}
@@ -3268,6 +3728,8 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
             onCancel={handleReferralCancel}
             onExport={handleReferralExport}
             onDetail={handleReferralDetail}
+            onContact={handleReferralContact}
+            onCalendar={handleReferralCalendar}
           />
         )}
         {activeRoute === 'immunizations' && <ImmunizationsPage
@@ -3313,23 +3775,46 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
           />
         )}
         {activeRoute === 'admin' && canConfigureAccess && <AdminAccessPage canManageRoles={canManageRoles} canManageUsers={canManageUsers} />}
-        {activeRoute === 'dashboard' && <Dashboard portal={portal} onBook={() => openBooking()} onNavigate={navigate} onPrintRecord={handleRecordExport} canBook={canRequestAppointments} />}
+        {activeRoute === 'dashboard' && (
+          <Dashboard
+            portal={portal}
+            onBook={() => openBooking()}
+            onMessage={() => openMessage()}
+            onRefill={() => {
+              setOpenRefillWorkflow(true);
+              navigate('prescriptions');
+            }}
+            onNavigate={navigate}
+          />
+        )}
+        </div>
       </div>
 
       <ComposedModal open={bookingOpen} onClose={closeBooking} size="sm">
         <ModalHeader title={reschedulingAppointmentId ? 'Reschedule appointment' : 'Schedule new appointment'} />
         <ModalBody>
+          <div
+            data-nielsen-heuristics="error-prevention recognition-rather-than-recall visibility-of-system-status"
+            data-evidence-id="appointment-workflow-form"
+          >
           <Stack gap={5}>
-            <TextInput id="visit-service" labelText="Service" value={visitForm.service} onChange={(event) => setVisitForm((current) => ({ ...current, service: event.target.value }))} />
+            <p className="required-note"><span aria-hidden="true">*</span> Required fields</p>
+            {/* Nielsen: Visibility of system status — submission feedback */}
+            <OperationStatus
+              busy={isSubmitting}
+              busyLabel={reschedulingAppointmentId ? 'Saving appointment changes…' : 'Sending appointment request…'}
+              evidenceId="appointment-operation-status"
+            />
+            <TextInput id="visit-service" labelText="Service *" value={visitForm.service} onChange={(event) => setVisitForm((current) => ({ ...current, service: event.target.value }))} />
             <label className="modal-field-select" htmlFor="visit-department">
-              <span>Department</span>
+              <span>Department *</span>
               <select id="visit-department" value={visitForm.department} onChange={(event) => { const provider = providerOptions.find((item) => item.department === event.target.value); const slot = portal.appointmentSlots.find((item) => item.status === 'Available' && item.department === event.target.value && item.date >= todayIso); setVisitForm((current) => ({ ...current, department: event.target.value, provider: provider?.name || '', location: provider?.location || '', date: slot?.date || current.date, preferredDate: slot?.date || current.preferredDate, time: slot?.time || '' })); }}>
                 {!departmentOptions.length && <option value="">No available departments</option>}
                 {departmentOptions.map((department) => <option key={department} value={department}>{department}</option>)}
               </select>
             </label>
             <label className="modal-field-select" htmlFor="visit-provider">
-              <span>Provider</span>
+              <span>Provider *</span>
               <select
                 id="visit-provider"
                 value={visitForm.provider}
@@ -3347,23 +3832,24 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
                 {providerOptions.map((provider) => <option key={provider.id} value={provider.name}>{provider.name} - {provider.department}</option>)}
               </select>
             </label>
-            <TextInput id="visit-date" type="date" min={todayIso} labelText="Date" value={visitForm.date} onChange={(event) => { const slot = portal.appointmentSlots.find((item) => item.status === 'Available' && item.department === visitForm.department && item.date === event.target.value); setVisitForm((current) => ({ ...current, date: event.target.value, preferredDate: event.target.value, time: slot?.time || '' })); }} />
+            <TextInput id="visit-date" type="date" min={todayIso} labelText="Date *" value={visitForm.date} onChange={(event) => { const slot = portal.appointmentSlots.find((item) => item.status === 'Available' && item.department === visitForm.department && item.date === event.target.value); setVisitForm((current) => ({ ...current, date: event.target.value, preferredDate: event.target.value, time: slot?.time || '' })); }} />
             <label className="modal-field-select" htmlFor="visit-time">
-              <span>Time</span>
+              <span>Time *</span>
               <select id="visit-time" value={visitForm.time} onChange={(event) => setVisitForm((current) => ({ ...current, time: event.target.value }))}>
                 {!slotOptions.length && <option value="">No available times for this date</option>}
                 {slotOptions.map((slot) => slot.time).filter((time, index, list) => list.indexOf(time) === index).map((time) => <option key={time} value={time}>{time}</option>)}
               </select>
             </label>
             <TextInput id="visit-location" labelText="Location" value={visitForm.location} onChange={(event) => setVisitForm((current) => ({ ...current, location: event.target.value }))} />
-            <TextInput id="visit-reason" labelText="Reason for visit" value={visitForm.reason} onChange={(event) => setVisitForm((current) => ({ ...current, reason: event.target.value }))} />
+            <TextInput id="visit-reason" labelText="Reason for visit *" value={visitForm.reason} onChange={(event) => setVisitForm((current) => ({ ...current, reason: event.target.value }))} />
             <TextArea id="visit-notes" labelText="Notes for care team" value={visitForm.notes} onChange={(event) => setVisitForm((current) => ({ ...current, notes: event.target.value }))} />
-            {formError && <InlineNotification kind="error" lowContrast title="Cannot send request" subtitle={formError} />}
+            {formError && <AccessibleFormError id="appointment-form-error">{formError}</AccessibleFormError>}
           </Stack>
+          </div>
         </ModalBody>
         <ModalFooter>
           <Button kind="secondary" onClick={closeBooking}>Cancel</Button>
-          <Button onClick={handleVisitSubmit} disabled={!canSubmitBooking || isSubmitting}>{!canSubmitBooking ? 'Restricted' : isSubmitting ? 'Sending...' : reschedulingAppointmentId ? 'Reschedule' : 'Send request'}</Button>
+          <Button onClick={handleVisitSubmit} disabled={!canSubmitBooking || isSubmitting}>{!canSubmitBooking ? 'Restricted' : isSubmitting ? 'Sending request…' : reschedulingAppointmentId ? 'Reschedule appointment' : 'Send request'}</Button>
         </ModalFooter>
       </ComposedModal>
 
@@ -3407,21 +3893,24 @@ function PortalShell({ onLogout }: { onLogout: () => void }) {
         </ModalFooter>
       </ComposedModal>
 
-      <ComposedModal open={supportOpen} onClose={() => setSupportOpen(false)} size="sm">
-        <ModalHeader title="Patient portal support" />
-        <ModalBody>
-          <Stack gap={5}>
-            <p>For urgent medical concerns, contact your local emergency service. Portal support requests are delivered through secure messaging.</p>
-            <TextInput id="support-subject" labelText="Subject" value={supportForm.subject} onChange={(event) => setSupportForm((current) => ({ ...current, subject: event.target.value }))} />
-            <TextArea id="support-body" labelText="How can we help?" value={supportForm.body} onChange={(event) => setSupportForm((current) => ({ ...current, body: event.target.value }))} />
-            {supportNotice && <p className="workspace-notice" role="status">{supportNotice}</p>}
-          </Stack>
-        </ModalBody>
-        <ModalFooter>
-          <Button kind="secondary" onClick={() => setSupportOpen(false)}>Close</Button>
-          <Button disabled={!canSendMessages || supportSubmitting || !supportForm.subject.trim() || !supportForm.body.trim()} onClick={() => void handleSupportSubmit()}>{supportSubmitting ? 'Submitting...' : canSendMessages ? 'Submit support request' : 'Restricted'}</Button>
-        </ModalFooter>
-      </ComposedModal>
+      <HelpPanel
+        open={supportOpen}
+        canSubmit={canSendMessages}
+        submitting={supportSubmitting}
+        subject={supportForm.subject}
+        body={supportForm.body}
+        notice={supportNotice}
+        onSubjectChange={(subject) => setSupportForm((current) => ({ ...current, subject }))}
+        onBodyChange={(body) => setSupportForm((current) => ({ ...current, body }))}
+        onSubmit={() => void handleSupportSubmit()}
+        onClose={() => setSupportOpen(false)}
+      />
+
+      <PrintablePreviewModal
+        preview={printableView}
+        onClose={() => setPrintableView(null)}
+      />
+      <WorkflowConfirmation confirmation={workflowConfirmation} onClose={() => setWorkflowConfirmation(null)} />
     </div>
   );
 }

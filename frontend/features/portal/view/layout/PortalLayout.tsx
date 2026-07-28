@@ -36,7 +36,12 @@ export function PortalHeader({
   onPatientContextChange?: (contextId: string) => void;
 }) {
   return (
-    <header className="o3-header">
+    <header
+      className="o3-header"
+      data-ux-law="jakobs-law"
+      data-nielsen-heuristic="consistency-and-standards"
+      data-evidence-id="portal-familiar-header"
+    >
       <strong>OpenMRS O3</strong>
       <nav aria-label="Primary navigation">
         {canAccessRoute('dashboard', permissions) && <button className={route === 'dashboard' ? 'active' : ''} type="button" onClick={() => onNavigate('dashboard')}>Dashboard</button>}
@@ -69,7 +74,7 @@ export function PortalSidebar({
 }) {
   const visibleMenuItems = sidebarRouteManifests.filter((item) => canAccessRoute(item.route, permissions));
   return (
-    <aside className="portal-sidebar">
+    <aside className="portal-sidebar" data-evidence-id="portal-labelled-navigation">
       <div className="sidebar-profile">
         <div className="sidebar-avatar">
           {route === 'records' || route === 'messages' ? <img src="/assets/patient-profile.png" alt="" /> : <UserAvatar size={25} />}

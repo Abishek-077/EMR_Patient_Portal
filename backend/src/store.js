@@ -47,11 +47,6 @@ const NESTED_COLLECTIONS = [
   ['billing.statements', (db) => db.billing?.statements],
   ['billing.paymentSessions', (db) => db.billing?.paymentSessions],
   ['billing.resources', (db) => db.billing?.resources],
-  ['referrals.rows', (db) => db.referrals?.rows],
-  ['familyAccess.proxies', (db) => db.familyAccess?.proxies],
-  ['familyAccess.accounts', (db) => db.familyAccess?.accounts],
-  ['familyAccess.activity', (db) => db.familyAccess?.activity],
-  ['familyAccess.reports', (db) => db.familyAccess?.reports],
   ['healthTrends.metrics', (db) => db.healthTrends?.metrics],
   ['healthTrends.labComparison', (db) => db.healthTrends?.labComparison],
   ['healthTrends.goals', (db) => db.healthTrends?.goals],
@@ -435,7 +430,6 @@ function indexDomainRecords(database, db) {
     indexCollection(statement, collection, getter(db));
   }
 
-  indexCollection(statement, 'referrals.focus', db.referrals?.focus ? [db.referrals.focus] : []);
   for (const collection of SINGLETON_COLLECTIONS) {
     indexCollection(statement, collection, db[collection] ? [db[collection]] : []);
   }
@@ -485,9 +479,6 @@ function hydrateIndexedDatabase(database, globalState) {
     if (record) db[collection] = record;
   }
 
-  const focusRows = readDomainCollection(database, 'referrals.focus');
-  db.referrals ||= {};
-  db.referrals.focus = focusRows[0] || db.referrals.focus || null;
 
   db.auditLog = database.prepare(`
     SELECT data_json FROM audit_events ORDER BY created_at DESC LIMIT 1000
@@ -530,7 +521,6 @@ function buildGlobalState(db) {
     setNestedCollection(globalState, collection, []);
   }
   for (const collection of SINGLETON_COLLECTIONS) delete globalState[collection];
-  if (globalState.referrals) globalState.referrals.focus = null;
   return globalState;
 }
 
@@ -585,8 +575,6 @@ function normalizeDb(db) {
     immunizations: Array.isArray(db.immunizations) ? db.immunizations : seedData.immunizations,
     immunizationRecords: mergeSeedShape(seedData.immunizationRecords, db.immunizationRecords),
     educationalResources: mergeSeedShape(seedData.educationalResources, db.educationalResources),
-    referrals: mergeSeedShape(seedData.referrals, db.referrals),
-    familyAccess: mergeSeedShape(seedData.familyAccess, db.familyAccess),
     healthTrends: mergeSeedShape(seedData.healthTrends, db.healthTrends),
     messages: Array.isArray(db.messages) ? db.messages : seedData.messages,
     messageConversations: Array.isArray(db.messageConversations) ? db.messageConversations : seedData.messageConversations,

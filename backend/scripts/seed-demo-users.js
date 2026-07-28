@@ -43,16 +43,6 @@ await createAdminUser(admin, {
   password: 'Clinician@Test1',
 });
 
-await createAdminUser(admin, {
-  fullName: 'Demo Proxy',
-  email: 'proxy@example.test',
-  dateOfBirth: '1988-01-01',
-  patientId: '',
-  roles: ['proxy'],
-  status: 'Active',
-  password: 'Proxy@Test1',
-});
-
 await updateDb((database) => {
   database.sessions = [];
 });
@@ -60,5 +50,4 @@ await updateDb((database) => {
 console.log('Development demo users seeded.');
 console.log('Patient: patient@example.test / Patient@Test1');
 console.log('Clinician: clinician@example.test / Clinician@Test1');
-console.log('Proxy: proxy@example.test / Proxy@Test1');
 console.log('Admin: admin@example.test / Admin@Test1');

@@ -121,6 +121,7 @@ function flattenResources(resources = {}) {
 }
 
 function publicResource(resource) {
+  const trustedSource = trustedSourceFor(resource);
   return {
     id: resource.id,
     title: resource.title,
@@ -132,6 +133,8 @@ function publicResource(resource) {
     duration: resource.duration || '',
     actionLabel: resource.actionLabel || (resource.format === 'PDF' ? 'Download' : 'Read'),
     imageUrl: resource.imageUrl || '',
+    sourceUrl: resource.sourceUrl || trustedSource?.url || '',
+    sourceLabel: resource.sourceLabel || trustedSource?.label || '',
   };
 }
 
@@ -170,3 +173,66 @@ function paginate(items, requestedPage, requestedPageSize) {
 function safeDownloadName(value) {
   return String(value || 'resource').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'resource';
 }
+
+function trustedSourceFor(resource) {
+  return TRUSTED_RESOURCE_SOURCES[resource.id] || null;
+}
+
+const TRUSTED_RESOURCE_SOURCES = {
+  'resource-hypertension-guide': {
+    label: 'CDC',
+    url: 'https://www.cdc.gov/high-blood-pressure/about/index.html',
+  },
+  'resource-lipid-video': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/lab-tests/cholesterol-levels/',
+  },
+  'condition-guides-0': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/ency/patientinstructions/000328.htm',
+  },
+  'condition-guides-1': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/chronicpain.html',
+  },
+  'condition-guides-2': {
+    label: 'NIDDK',
+    url: 'https://www.niddk.nih.gov/health-information/kidney-disease',
+  },
+  'medication-info-0': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/statins.html',
+  },
+  'medication-info-1': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/bloodthinners.html',
+  },
+  'medication-info-2': {
+    label: 'CDC',
+    url: 'https://www.cdc.gov/antibiotic-use/',
+  },
+  'wellness-tips-0': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/nutrition.html',
+  },
+  'wellness-tips-1': {
+    label: 'NHLBI',
+    url: 'https://www.nhlbi.nih.gov/health/sleep-deprivation/health-effects',
+  },
+  'wellness-tips-2': {
+    label: 'CDC',
+    url: 'https://www.cdc.gov/mental-health/living-with/index.html',
+  },
+  'lib-cbc': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/lab-tests/complete-blood-count-cbc/',
+  },
+  'lib-cardio': {
+    label: 'CDC',
+    url: 'https://www.cdc.gov/arthritis/prevention/index.html',
+  },
+  'lib-wound': {
+    label: 'MedlinePlus',
+    url: 'https://medlineplus.gov/ency/patientinstructions/000738.htm',
+  },
+};

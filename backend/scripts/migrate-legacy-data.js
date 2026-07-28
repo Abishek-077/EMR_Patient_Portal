@@ -131,8 +131,6 @@ function assignLegacyOwnership(database, { ensurePatientProfile, getPatientId })
   const nestedCollections = [
     ['billing', ['paymentMethods', 'invoices', 'payments', 'statements', 'paymentSessions']],
     ['immunizationRecords', ['alerts', 'completed']],
-    ['referrals', ['rows']],
-    ['familyAccess', ['proxies', 'accounts', 'activity', 'reports']],
     ['healthTrends', ['metrics', 'labComparison', 'goals']],
   ];
   for (const [parent, collections] of nestedCollections) {
@@ -143,9 +141,6 @@ function assignLegacyOwnership(database, { ensurePatientProfile, getPatientId })
     }
   }
 
-  if (database.referrals?.focus && typeof database.referrals.focus === 'object') {
-    resolveOwner(database.referrals.focus, 'referrals.focus');
-  }
 
   for (const [index, profile] of (database.patientProfiles || []).entries()) {
     if (profile && typeof profile === 'object') resolveOwner(profile, `patientProfiles[${index}]`);

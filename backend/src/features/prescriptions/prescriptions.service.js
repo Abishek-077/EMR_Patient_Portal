@@ -302,6 +302,7 @@ function publicPrescription(item) {
     requestId: item.requestId || null,
     name: item.name,
     detail: item.detail || '',
+    prescriber: item.prescriber || '',
     frequency: item.frequency || '',
     instructions: item.instructions || '',
     started: item.started || '',
