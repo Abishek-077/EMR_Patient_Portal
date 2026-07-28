@@ -7,7 +7,7 @@ The React application uses feature-owned pages and API facades under `frontend/f
 - Authentication bootstraps from the HttpOnly cookie through `/api/auth/me`.
 - CSRF and the selected `X-Patient-Context` are attached centrally.
 - `/api/portal` provides only session/navigation/context bootstrap metadata.
-- The portal hydrates dashboard, registration, appointments, messages, records, files, prescriptions, billing, referrals, trends, immunizations, resources, profile, and family data from dedicated feature endpoints.
+- The portal hydrates dashboard, registration, appointments, messages, records, files, prescriptions, billing, trends, immunizations, resources, and profile data from dedicated feature endpoints.
 - The query cache scopes keys by patient context, shares in-flight requests, cancels stale work, retries transient reads once, and invalidates affected feature/home/bootstrap keys after mutations.
 - JSON, multipart upload, authenticated blob download, and PDF/CSV export transports are separate.
 - A centralized 401 event clears client state and returns to login.
