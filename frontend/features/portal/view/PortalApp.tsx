@@ -596,7 +596,13 @@ function RecordsPage({
   };
 
   return (
-    <main className="portal-main records-page">
+    <main
+      className="portal-main records-page"
+      data-ux-law="law-of-common-region"
+      data-nielsen-heuristics="consistency-and-standards flexibility-and-efficiency"
+      data-evidence-id="health-records-common-regions"
+    >
+      {/* UX Law: Law of Common Region — bounded filters, results, details, observations, and notes */}
       <section className="records-title">
         <div>
           <h1>Health Records</h1>
