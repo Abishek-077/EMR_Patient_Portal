@@ -616,17 +616,26 @@ function RecordsPage({
         </div>
       </section>
       {recordNotice && <p className="workspace-notice" role="status">{recordNotice}</p>}
-      <label className="record-search">
-        <Search size={18} />
-        <input aria-label="Search health records" placeholder="Search labs, notes, documents..." value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
+      <section
+        className="record-filter-region"
+        aria-label="Search and filter health records"
+        data-nielsen-heuristic="flexibility-and-efficiency recognition-rather-than-recall"
+        data-evidence-id="records-search-filters"
+      >
+        <label className="record-search">
+          <Search size={18} />
+          <input aria-label="Search health records" placeholder="Search labs, notes, documents…" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <span>{query ? `Filter: “${query}”` : 'All record types'}</span>
+        <button type="button" disabled={!query} onClick={() => setQuery('')}>Reset filters</button>
+      </section>
 
-      <div className="records-grid">
+      <div className="records-grid" data-evidence-id="records-results-region">
         <section className="records-trends">
           <h2><Renew size={22} /> Health Trends</h2>
           <TrendChart />
         </section>
-        <aside className="observations-panel">
+        <aside className="observations-panel" data-evidence-id="records-critical-observations">
           <h2>Critical Observations</h2>
           {warningLabs.length ? warningLabs.map((lab) => (
             <article className={`observation observation--${labStatus(lab) === 'LOW' ? 'yellow' : 'red'}`} key={lab.label}>
