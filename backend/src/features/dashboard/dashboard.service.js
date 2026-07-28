@@ -11,8 +11,10 @@ export async function getDashboardForPatient(user, access) {
   const canViewBilling = hasPermission(access, 'billing.view');
   const canViewRecords = hasPermission(access, 'records.view');
   const canViewTrends = hasPermission(access, 'trends.view');
+  const canViewReferrals = hasPermission(access, 'referrals.view');
   const canSendMessages = hasPermission(access, 'messages.send');
   const canRequestRefills = hasPermission(access, 'prescriptions.refill');
+  const canRequestAppointments = hasPermission(access, 'appointments.request');
   const upcomingAppointments = canViewAppointments ? db.appointments
     .filter(isUpcomingAppointment)
     .sort((left, right) => appointmentTime(left) - appointmentTime(right))
@@ -44,30 +46,35 @@ export async function getDashboardForPatient(user, access) {
     },
     quickActions: [
       {
-        id: 'message-care-team',
-        label: 'Message my Doctor',
-        detail: latestConversation ? `Last message: ${latestConversation.time}` : 'Start a portal thread',
+        id: 'schedule-appointment',
+        label: 'Schedule appointment',
+        detail: 'Choose an available provider and time',
+        target: 'appointments',
+        enabled: canRequestAppointments,
+        restrictedReason: canRequestAppointments ? '' : 'Your account can view appointments but cannot submit requests.',
+      },
+      {
+        id: 'send-message',
+        label: 'Send message',
+        detail: latestConversation ? 'Contact your care team securely' : 'Start a secure care-team message',
         target: 'messages',
-        priority: 'primary',
+        enabled: canSendMessages,
+        restrictedReason: canSendMessages ? '' : 'Secure messaging is not available for this account.',
       },
       {
-        id: 'refill-prescriptions',
-        label: 'Refill Prescriptions',
-        detail: refillsDue ? `${refillsDue} refill${refillsDue === 1 ? '' : 's'} due` : 'No refills due',
+        id: 'request-refill',
+        label: 'Request refill',
+        detail: refillsDue ? `${refillsDue} medication${refillsDue === 1 ? '' : 's'} ready to review` : 'Review current prescriptions',
         target: 'prescriptions',
-        priority: 'secondary',
+        enabled: canRequestRefills,
+        restrictedReason: canRequestRefills ? '' : 'Refill requests require additional account permission.',
       },
-      {
-        id: 'view-records',
-        label: 'View Records',
-        detail: latestDocument ? `Updated ${latestDocument.updated}` : 'Clinical summary ready',
-        target: 'records',
-        priority: 'neutral',
-      },
-    ].filter((action) => {
-      if (action.target === 'messages') return canSendMessages;
-      if (action.target === 'prescriptions') return canRequestRefills;
-      return canViewRecords;
+    ],
+    attentionItems: buildAttentionItems(db, {
+      canViewAppointments,
+      canViewPrescriptions,
+      canViewBilling,
+      canViewReferrals,
     }),
     latestLabResults: latestLabs,
     upcomingAppointments,
@@ -102,6 +109,98 @@ export async function getDashboardForPatient(user, access) {
       lastSync: mostRecentTimestamp(db),
     },
   };
+}
+
+function buildAttentionItems(db, permissions) {
+  const items = [];
+
+  if (permissions.canViewPrescriptions) {
+    for (const request of db.refillRequests.filter((item) => ['Pending', 'Queued'].includes(item.status))) {
+      items.push({
+        id: `attention-refill-${request.id}`,
+        type: 'refill',
+        title: request.prescriptionName || 'Prescription refill',
+        detail: `Requested for ${request.pharmacyName || db.preferredPharmacy?.name || 'your preferred pharmacy'}.`,
+        status: request.status === 'Queued' ? 'Queued for clinical review' : 'Pending clinical review',
+        tone: 'pending',
+        target: 'prescriptions',
+        actionLabel: 'Review refill',
+        referenceId: request.id,
+      });
+    }
+  }
+
+  if (permissions.canViewReferrals) {
+    for (const referral of (db.referrals?.rows || []).filter((item) => item.status === 'Pending')) {
+      items.push({
+        id: `attention-referral-${referral.id}`,
+        type: 'referral',
+        title: `${referral.specialty} referral`,
+        detail: referral.reason,
+        status: 'Pending care-team review',
+        tone: 'warning',
+        target: 'referrals',
+        actionLabel: 'View referral',
+        referenceId: referral.id,
+      });
+    }
+  }
+
+  if (permissions.canViewAppointments) {
+    for (const request of db.appointmentRequests.filter((item) => ['Pending', 'Queued'].includes(item.status))) {
+      items.push({
+        id: `attention-appointment-${request.id}`,
+        type: 'appointment',
+        title: request.reason || 'Appointment request',
+        detail: `Preferred date ${patientDate(request.preferredDate)}.`,
+        status: 'Awaiting scheduling',
+        tone: 'pending',
+        target: 'appointments',
+        actionLabel: 'Review request',
+        referenceId: request.id,
+      });
+    }
+    for (const appointment of db.appointments.filter((item) => item.status === 'Pending').slice(0, 1)) {
+      items.push({
+        id: `attention-appointment-${appointment.id}`,
+        type: 'appointment',
+        title: appointment.service || 'Appointment',
+        detail: `${patientDate(appointment.date)} at ${appointment.time || 'a time to be confirmed'}.`,
+        status: 'Action required: confirm details',
+        tone: 'warning',
+        target: 'appointments',
+        actionLabel: 'View appointment',
+        referenceId: appointment.id,
+      });
+    }
+  }
+
+  if (permissions.canViewBilling && Number(db.billing?.outstandingBalance || 0) > 0) {
+    items.push({
+      id: 'attention-billing-balance',
+      type: 'billing',
+      title: 'Outstanding balance',
+      detail: `${formatNpr(db.billing.outstandingBalance)} due${db.billing.dueDate ? ` by ${db.billing.dueDate}` : ''}.`,
+      status: 'Payment due',
+      tone: 'error',
+      target: 'billing',
+      actionLabel: 'Review balance',
+      referenceId: 'billing-balance',
+    });
+  }
+
+  return items.slice(0, 6);
+}
+
+function patientDate(value) {
+  const date = new Date(`${value || ''}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? String(value || 'Date pending')
+    : new Intl.DateTimeFormat('en-NP', { dateStyle: 'medium' }).format(date);
+}
+
+function formatNpr(value) {
+  return new Intl.NumberFormat('en-NP', { style: 'currency', currency: 'NPR', maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
 function buildPatientIdentity(db, user) {
