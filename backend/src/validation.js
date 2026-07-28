@@ -276,87 +276,6 @@ export function patientNoteSchema(body) {
   };
 }
 
-export function referralRequestSchema(body) {
-  return {
-    provider: limitedOptionalString(body.provider || 'Care Team', 'provider', 160),
-    specialty: limitedString(body.specialty, 'specialty', 160),
-    reason: limitedString(body.reason, 'reason', 1_000),
-    clinic: limitedOptionalString(body.clinic, 'clinic', 200),
-  };
-}
-
-export function referralActionSchema(body) {
-  return {
-    action: enumField(body.action, 'action', ['Resend Request']),
-    note: limitedOptionalString(body.note, 'note', 1_000),
-  };
-}
-
-export function referralStatusSchema(body) {
-  const status = enumField(body.status, 'status', ['Approved', 'Rejected', 'Scheduled', 'Completed', 'Cancelled']);
-  const reason = limitedOptionalString(body.reason ?? body.note, 'reason', 1_000);
-  if (['Rejected', 'Cancelled'].includes(status) && !reason) {
-    throw badRequest('reason is required for rejected or cancelled referrals');
-  }
-  return {
-    status,
-    reason,
-    appointment: limitedOptionalString(body.appointment, 'appointment', 240),
-    clinic: limitedOptionalString(body.clinic, 'clinic', 200),
-  };
-}
-
-export function proxyInviteSchema(body) {
-  const email = stringField(body.email, 'email').toLowerCase();
-  if (!isEmail(email)) throw badRequest('A valid proxy email address is required');
-  return {
-    name: limitedString(body.name, 'name', 160),
-    email,
-    relationship: limitedString(body.relationship, 'relationship', 80),
-    permissions: proxyPermissions(body.permissions),
-  };
-}
-
-export function proxyPermissionSchema(body) {
-  return {
-    permissions: proxyPermissions(body.permissions),
-  };
-}
-
-export function proxyInvitationAcceptanceSchema(body) {
-  return { token: limitedString(body.token, 'token', 512) };
-}
-
-export function accessReportStatusSchema(body) {
-  return {
-    status: enumField(body.status, 'status', ['Under Review', 'Resolved', 'Dismissed']),
-    resolution: limitedOptionalString(body.resolution, 'resolution', 2_000),
-  };
-}
-
-export function dependentSchema(body) {
-  return {
-    name: stringField(body.name, 'name'),
-    relationship: stringField(body.relationship, 'relationship'),
-    detail: optionalString(body.detail || 'Added from patient portal'),
-    access: optionalString(body.access || 'View Only'),
-  };
-}
-
-export function privacySettingsSchema(body) {
-  return {
-    shareRecords: typeof body.shareRecords === 'boolean' ? body.shareRecords : null,
-    mentalHealthNotes: typeof body.mentalHealthNotes === 'boolean' ? body.mentalHealthNotes : null,
-  };
-}
-
-export function unauthorizedAccessReportSchema(body) {
-  return {
-    summary: stringField(body.summary, 'summary'),
-    contactPreference: optionalString(body.contactPreference || 'Secure message'),
-  };
-}
-
 export function resourceInteractionSchema(body) {
   const requestedAction = stringField(body.action, 'action');
   const action = /^(read|read article|view guide|learn more)$/i.test(requestedAction)
@@ -549,10 +468,6 @@ function assertFutureDate(value, fieldName) {
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) throw badRequest(`${fieldName} must be a valid date`);
   if (timestamp <= Date.now()) throw badRequest(`${fieldName} must be in the future`);
-}
-
-function proxyPermissions(value) {
-  return enumField(value, 'permissions', ['Full Access', 'View Only', 'Clinical Only', 'Billing Only']);
 }
 
 function expectedMimeType(extension) {
