@@ -11,7 +11,6 @@ export async function getDashboardForPatient(user, access) {
   const canViewBilling = hasPermission(access, 'billing.view');
   const canViewRecords = hasPermission(access, 'records.view');
   const canViewTrends = hasPermission(access, 'trends.view');
-  const canViewReferrals = hasPermission(access, 'referrals.view');
   const canSendMessages = hasPermission(access, 'messages.send');
   const canRequestRefills = hasPermission(access, 'prescriptions.refill');
   const canRequestAppointments = hasPermission(access, 'appointments.request');
@@ -74,7 +73,6 @@ export async function getDashboardForPatient(user, access) {
       canViewAppointments,
       canViewPrescriptions,
       canViewBilling,
-      canViewReferrals,
     }),
     latestLabResults: latestLabs,
     upcomingAppointments,
@@ -126,22 +124,6 @@ function buildAttentionItems(db, permissions) {
         target: 'prescriptions',
         actionLabel: 'Review refill',
         referenceId: request.id,
-      });
-    }
-  }
-
-  if (permissions.canViewReferrals) {
-    for (const referral of (db.referrals?.rows || []).filter((item) => item.status === 'Pending')) {
-      items.push({
-        id: `attention-referral-${referral.id}`,
-        type: 'referral',
-        title: `${referral.specialty} referral`,
-        detail: referral.reason,
-        status: 'Pending care-team review',
-        tone: 'warning',
-        target: 'referrals',
-        actionLabel: 'View referral',
-        referenceId: referral.id,
       });
     }
   }
