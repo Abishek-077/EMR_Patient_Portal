@@ -138,7 +138,7 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: (result: AuthResponse
       <section className="login-content">
         <div className="login-intro">
           <h1>Sign In</h1>
-          <p>Log in to manage your health records and appointments.</p>
+          <p>Patients and administrators use the same secure sign-in.</p>
         </div>
         <form className="auth-card login-card" onSubmit={handleSubmit}>
           <label className="auth-field" htmlFor="login-identity">
@@ -454,9 +454,14 @@ function NotFoundPage({ authenticated }: { authenticated: boolean }) {
   );
 }
 
+function authenticatedLandingPath(result: AuthResponse) {
+  return result.user.roles.includes('admin') ? '/admin/access-control' : '/home';
+}
+
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [landingPath, setLandingPath] = useState('/home');
   const [bootstrapError, setBootstrapError] = useState('');
   const navigate = useNavigate();
   const routeLocation = useLocation();
@@ -475,6 +480,7 @@ function App() {
       .then((session) => {
         if (active) {
           const required = Boolean(session.user.mustChangePassword);
+          setLandingPath(authenticatedLandingPath(session));
           setMustChangePassword(required);
           setAuthenticated(true);
           if (required && window.location.pathname !== '/change-password') navigate('/change-password', { replace: true });
@@ -494,6 +500,7 @@ function App() {
     const handleUnauthorized = () => {
       clearClientSession();
       setMustChangePassword(false);
+      setLandingPath('/home');
       setAuthenticated(false);
       navigate('/login', { replace: true });
     };
@@ -506,10 +513,12 @@ function App() {
     // development browser are still read by the transport during bootstrap.
     clearLegacyAuthToken();
     const required = Boolean(result.user.mustChangePassword);
+    const destination = authenticatedLandingPath(result);
+    setLandingPath(destination);
     setMustChangePassword(required);
     setAuthenticated(true);
     setBootstrapError('');
-    navigate(required ? '/change-password' : '/home', { replace: true });
+    navigate(required ? '/change-password' : destination, { replace: true });
   }, [navigate]);
 
   const handleLogout = useCallback(async () => {
@@ -520,6 +529,7 @@ function App() {
     } finally {
       clearClientSession();
       setMustChangePassword(false);
+      setLandingPath('/home');
       setAuthenticated(false);
       navigate('/login', { replace: true });
     }
@@ -529,21 +539,21 @@ function App() {
     return <main className="app-loading" aria-live="polite"><p>Restoring your secure session...</p></main>;
   }
 
-  const portalPaths = ['/home', '/dashboard', '/registration', '/records', '/appointments', '/messages', '/prescriptions', '/billing', '/family', '/resources', '/referrals', '/immunizations', '/trends', '/profile', '/admin/access-control'];
+  const portalPaths = ['/home', '/dashboard', '/registration', '/records', '/appointments', '/messages', '/prescriptions', '/billing', '/resources', '/immunizations', '/trends', '/profile', '/admin/access-control'];
 
   return (
     <Routes>
-      <Route path="/login" element={authenticated ? <Navigate to={mustChangePassword ? '/change-password' : '/home'} replace /> : <><LoginPage onAuthenticated={handleAuthenticated} />{bootstrapError && <span className="sr-only">{bootstrapError}</span>}</>} />
-      <Route path="/signup" element={authenticated ? <Navigate to={mustChangePassword ? '/change-password' : '/home'} replace /> : <SignupPage onAuthenticated={handleAuthenticated} />} />
+      <Route path="/login" element={authenticated ? <Navigate to={mustChangePassword ? '/change-password' : landingPath} replace /> : <><LoginPage onAuthenticated={handleAuthenticated} />{bootstrapError && <span className="sr-only">{bootstrapError}</span>}</>} />
+      <Route path="/signup" element={authenticated ? <Navigate to={mustChangePassword ? '/change-password' : landingPath} replace /> : <SignupPage onAuthenticated={handleAuthenticated} />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/change-password" element={authenticated ? <ChangePasswordPage onChanged={() => { setMustChangePassword(false); navigate('/home', { replace: true }); }} /> : <Navigate to="/login" replace />} />
+      <Route path="/change-password" element={authenticated ? <ChangePasswordPage onChanged={() => { setMustChangePassword(false); navigate(landingPath, { replace: true }); }} /> : <Navigate to="/login" replace />} />
       <Route path="/support" element={<InformationPage title="Portal support"><p>For urgent medical concerns, contact your local emergency service. For portal access, appointment, records, or billing help, contact your organization&apos;s patient support team.</p></InformationPage>} />
       <Route path="/terms" element={<InformationPage title="Terms of service"><p>This local portal is provided for authorized patient-care workflows. Do not enter real patient data unless your organization has approved this deployment.</p></InformationPage>} />
       <Route path="/privacy" element={<InformationPage title="Patient privacy"><p>Access is authenticated and audited. Only use the portal for patients and records you are authorized to access.</p></InformationPage>} />
       <Route path="/accessibility" element={<InformationPage title="Accessibility"><p>The portal supports keyboard navigation, semantic controls, and screen-reader labels. Contact support to report an accessibility barrier.</p></InformationPage>} />
       {portalPaths.map((path) => <Route key={path} path={path} element={authenticated ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <Suspense fallback={<main className="app-loading"><p>Loading portal workspace...</p></main>}><PortalApp onLogout={handleLogout} /></Suspense>) : <Navigate to="/login" replace />} />)}
-      <Route path="/" element={<Navigate to={authenticated ? (mustChangePassword ? '/change-password' : '/home') : '/login'} replace />} />
+      <Route path="/" element={<Navigate to={authenticated ? (mustChangePassword ? '/change-password' : landingPath) : '/login'} replace />} />
       <Route path="*" element={<NotFoundPage authenticated={authenticated} />} />
     </Routes>
   );
