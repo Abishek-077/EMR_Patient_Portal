@@ -88,8 +88,6 @@ export function scopeDbToPatient(db, user) {
     interactionChecks: filterOwned(db.interactionChecks || [], user),
     billing: getBillingForPatient(db, user),
     immunizationRecords: scopeImmunizationRecords(db.immunizationRecords, user),
-    referrals: scopeReferrals(db.referrals, user),
-    familyAccess: scopeFamilyAccess(db.familyAccess, user),
     healthTrends: scopeHealthTrends(db.healthTrends, user),
   };
 }
@@ -288,17 +286,6 @@ function stampUnownedNestedArrays(db, user) {
   db.immunizationRecords.alerts = stampUnownedArray(db.immunizationRecords.alerts, user);
   db.immunizationRecords.completed = stampUnownedArray(db.immunizationRecords.completed, user);
 
-  db.referrals ||= {};
-  db.referrals.rows = stampUnownedArray(db.referrals.rows, user);
-  if (db.referrals.focus && !db.referrals.focus.patientId) {
-    db.referrals.focus = stampPatientOwnership(db.referrals.focus, user);
-  }
-
-  db.familyAccess ||= {};
-  for (const key of ['proxies', 'accounts', 'activity', 'reports']) {
-    db.familyAccess[key] = stampUnownedArray(db.familyAccess[key], user);
-  }
-
   db.healthTrends ||= {};
   db.healthTrends.metrics = stampUnownedArray(db.healthTrends.metrics, user);
   db.healthTrends.labComparison = stampUnownedArray(db.healthTrends.labComparison, user);
@@ -336,16 +323,6 @@ function appendSeedDataForPatient(db, user) {
   db.immunizationRecords.alerts.push(...cloneOwnedArray(seedData.immunizationRecords.alerts, user));
   db.immunizationRecords.completed.push(...cloneOwnedArray(seedData.immunizationRecords.completed, user));
   db.immunizationRecords.compliance ||= structuredClone(seedData.immunizationRecords.compliance);
-
-  db.referrals ||= {};
-  db.referrals.rows ||= [];
-  db.referrals.rows.push(...cloneOwnedArray(seedData.referrals.rows, user));
-
-  db.familyAccess ||= {};
-  for (const key of ['proxies', 'accounts', 'activity', 'reports']) {
-    db.familyAccess[key] ||= [];
-    db.familyAccess[key].push(...cloneOwnedArray(seedData.familyAccess[key], user));
-  }
 
   db.healthTrends ||= {};
   db.healthTrends.metrics ||= [];
@@ -431,29 +408,6 @@ function scopeImmunizationRecords(records = {}, user) {
   };
 }
 
-function scopeReferrals(referrals = {}, user) {
-  const rows = filterOwned(referrals.rows || [], user);
-  const focusedRow = rows.find((row) => String(row.id || '').toUpperCase() === String(referrals.focus?.caseId || '').toUpperCase());
-  return {
-    rows,
-    summary: {
-      active: rows.filter((row) => row.status !== 'Completed').length,
-      pending: rows.filter((row) => row.status === 'Pending').length,
-      completedYear: rows.filter((row) => row.status === 'Completed').length,
-    },
-    focus: focusedRow ? referrals.focus : null,
-  };
-}
-
-function scopeFamilyAccess(familyAccess = {}, user) {
-  return {
-    proxies: filterOwned(familyAccess.proxies || [], user),
-    accounts: filterOwned(familyAccess.accounts || [], user),
-    activity: filterOwned(familyAccess.activity || [], user),
-    reports: filterOwned(familyAccess.reports || [], user),
-  };
-}
-
 function scopeHealthTrends(healthTrends = {}, user) {
   const metrics = filterOwned(healthTrends.metrics || [], user);
   const attentionRequired = metrics.filter((metric) => /elevated|attention|high|low|critical/i.test(String(metric.status || ''))).length;
@@ -517,18 +471,10 @@ function migrateLegacyPatientOwnership(db, user) {
   for (const key of BILLING_ARRAY_KEYS) migrateArray(db.billing?.[key]);
   migrateArray(db.immunizationRecords?.alerts);
   migrateArray(db.immunizationRecords?.completed);
-  migrateArray(db.referrals?.rows);
-  migrateArray(db.familyAccess?.proxies);
-  migrateArray(db.familyAccess?.accounts);
-  migrateArray(db.familyAccess?.activity);
-  migrateArray(db.familyAccess?.reports);
   migrateArray(db.healthTrends?.metrics);
   migrateArray(db.healthTrends?.labComparison);
   migrateArray(db.healthTrends?.goals);
 
-  if (db.referrals?.focus && legacyIds.has(String(db.referrals.focus.patientId || '').trim())) {
-    db.referrals.focus.patientId = canonicalId;
-  }
 }
 
 function applyDemoProfileDefaults(profile, user) {
