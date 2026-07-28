@@ -428,7 +428,7 @@ export async function getPortalData(): Promise<PortalData> {
     },
   );
 
-  const [dashboard, home, registration, appointments, prescriptions, billing, profile, records, trends, referrals, immunizations, resources, files, conversations] = await Promise.all([
+  const [dashboard, home, registration, appointments, prescriptions, billing, profile, records, trends, referrals, immunizations, resources, family, files, conversations] = await Promise.all([
     cachedRequest<PortalData['dashboard']>('dashboard', '/api/patient/dashboard'),
     cachedRequest<HomeData>('home', '/api/patient/home'),
     loadOptional<RegistrationIntake | undefined>(can('registration.view', 'registration.viewOwn'), 'registration', '/api/registration', undefined),
@@ -441,6 +441,7 @@ export async function getPortalData(): Promise<PortalData> {
     loadOptional<Record<string, unknown>>(can('referrals.view', 'referrals.viewOwn'), 'referrals', '/api/referrals?pageSize=500', emptyReferralsFeature()),
     loadOptional<Record<string, unknown>>(can('immunizations.view', 'immunizations.viewOwn'), 'immunizations', '/api/immunizations', emptyImmunizationsFeature()),
     loadOptional<Record<string, unknown>>(can('resources.view'), 'resources', '/api/resources?pageSize=500', emptyResourcesFeature()),
+    loadOptional<Record<string, unknown>>(can('family.view', 'family.viewOwn'), 'family', '/api/family', emptyFamilyFeature()),
     loadOptional<Record<string, unknown>>(can('files.manage', 'files.manageOwn', 'records.view', 'records.viewOwn', 'messages.view', 'messages.viewOwn'), 'files', '/api/files', { files: [] }),
     loadOptional<Record<string, unknown>>(can('messages.view', 'messages.viewOwn'), 'messages', '/api/messages/conversations?include=messages', { conversations: [] }),
   ]);
@@ -468,7 +469,7 @@ export async function getPortalData(): Promise<PortalData> {
     clinicalNotes: PortalData['clinicalNotes'];
     documents: PortalData['documents'];
   };
-  const familyData = emptyFamilyFeature();
+  const familyData = family as unknown as ReturnType<typeof emptyFamilyFeature>;
   const immunizationData = immunizations as unknown as { records: PortalData['immunizationRecords'] };
   const resourceData = resources as unknown as PortalData['educationalResources'] & { interactions?: PortalData['resourceInteractions'] };
   const fileData = files as unknown as { files: UploadedFile[] };
