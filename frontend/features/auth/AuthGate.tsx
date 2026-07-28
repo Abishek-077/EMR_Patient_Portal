@@ -529,7 +529,7 @@ function App() {
     return <main className="app-loading" aria-live="polite"><p>Restoring your secure session...</p></main>;
   }
 
-  const portalPaths = ['/home', '/dashboard', '/registration', '/records', '/appointments', '/messages', '/prescriptions', '/billing', '/resources', '/referrals', '/immunizations', '/trends', '/profile', '/admin/access-control'];
+  const portalPaths = ['/home', '/dashboard', '/registration', '/records', '/appointments', '/messages', '/prescriptions', '/billing', '/family', '/resources', '/referrals', '/immunizations', '/trends', '/profile', '/admin/access-control'];
 
   return (
     <Routes>
